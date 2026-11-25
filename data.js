@@ -156,6 +156,14 @@ function seed() {
   for (const [role, u] of Object.entries(DEMO_USERS)) users[u.id] = { role, name: u.name, email: u.email, teacherId: role === 'teacher' ? 'sara' : '', studentIds: role === 'parent' ? ['yusuf', 'maryam'] : [] };
   return {
     teachers, students, billing, attendance, reports, payments, expenses, users, payouts: {}, invites: {},
+    monthlyReports: {
+      [thisMonth() + '_yusuf']: { studentId: 'yusuf', teacherId: 'sara', month: thisMonth(), start: 'سورة النبأ', end: 'سورة عبس آية ٢٠', achieved: 'أتمّ حفظ النبأ والنازعات مع مراجعة قصار السور', strengths: 'مخارج الحروف واضحة', improve: 'المدود', nextGoal: 'إتمام سورة عبس', teacherNote: 'يوسف مجتهد ما شاء الله', supNote: 'تقدّم ممتاز', status: 'published', publishedAt: Date.now(), updatedAt: Date.now() },
+      [thisMonth() + '_maryam']: { studentId: 'maryam', teacherId: 'sara', month: thisMonth(), start: 'سورة الفجر', end: 'سورة البلد', achieved: 'حفظت الفجر والبلد', strengths: 'حفظ سريع', improve: 'التركيز', nextGoal: 'سورة الشمس', teacherNote: '', status: 'submitted', updatedAt: Date.now() },
+    },
+    makeups: { k1: { studentId: 'maryam', teacherId: 'sara', date: addDays(today(), 2), time: '18:30', forDate: today(), note: 'تعويض حصة مؤجلة', at: Date.now() } },
+    contacts: { c1: { studentId: 'zaid', date: addDays(today(), -3), method: 'whatsapp', reason: 'renewal', notes: 'الأم ستؤكد التجديد بعد الراتب', next: addDays(today(), -1), done: false, byName: 'المحاسب (تجريبي)', at: Date.now() - 3 * 864e5 } },
+    payAdj: { a1: { teacherId: 'sara', month: thisMonth(), kind: 'bonus', amount: 150, reason: 'تغطية حصص زميلة', at: Date.now() } },
+    payroll: {},
     registrations: {
       r1: { parentName: 'أم ريان', studentName: 'ريان', studentAge: 7, country: 'ألمانيا', whatsapp: '+49 151 000 0000', course: 'quran', preferredTime: 'evening', notes: 'يقرأ الفاتحة وقصار السور', status: 'new', source: 'site', at: Date.now() - 3600e3 },
       r2: { parentName: 'أم جود', studentName: 'جود', studentAge: 5, country: 'تركيا', whatsapp: '+90 555 000 11 22', course: 'arabic', preferredTime: 'morning', notes: '', status: 'contacted', source: 'site', at: Date.now() - 86400e3 },

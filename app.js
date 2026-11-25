@@ -7,7 +7,7 @@ const ACAD_TZ = 'Africa/Cairo';           // dates of attendance/reports are key
 const $ = id => document.getElementById(id);
 const S = { api: null, user: null, prof: null, tab: '', date: U.today(), month: U.thisMonth(), q: '', tf: 'all', rf: 'open', busy: new Set() };
 let D = emptyData();
-function emptyData() { return { teachers: {}, students: [], billing: {}, att: [], reports: [], payments: [], expenses: [], payouts: [], rates: {}, main: {}, tRates: {}, users: [], invites: [], regs: [] }; }
+function emptyData() { return { teachers: {}, students: [], billing: {}, att: [], reports: [], payments: [], expenses: [], payouts: [], rates: {}, main: {}, tRates: {}, users: [], invites: [], regs: [], monthly: [], makeups: [], contacts: [], adj: [], payroll: [] }; }
 
 /* ---------------- boot & auth ---------------- */
 let toastT;
@@ -20,7 +20,7 @@ function fail(e) { console.error(e); const c = e && e.code || ''; toast(c.includ
   $('demoBar').hidden = S.api.mode !== 'demo';
   $('outBtn').onclick = () => { S.api.signOut(); };
   S.api.onAuth(async user => {
-    S.user = user; S.prof = null; D = emptyData();
+    S.user = user; S.prof = null; D = emptyData(); closeSheet();
     if (!user) return renderLogin();
     $('main').innerHTML = '<div class="empty">جارٍ تحميل بياناتك…</div>';
     let prof; try { prof = await S.api.loadProfile(user); } catch (e) { prof = { error: 'load', e }; console.error(e); }
@@ -78,9 +78,12 @@ async function loadAll() {
     const jobs = [A.list('students'), A.list('billing'), A.list('attendance'), A.list('reports'), safe(A.get('settings', 'rates'))];
     const [st, bi, at, rp, rates] = await Promise.all(jobs);
     d.students = st; bi.forEach(b => d.billing[b.id] = b); d.att = at; d.reports = rp; d.rates = rates || {};
+    const [mo, mk, ct] = await Promise.all([safe(A.list('monthlyReports')), safe(A.list('makeups')), safe(A.list('contacts'))]);
+    d.monthly = mo || []; d.makeups = mk || []; d.contacts = ct || [];
     if (can.acc()) {
       const [pay, exp, po, tr] = await Promise.all([A.list('payments'), A.list('expenses'), A.list('payouts'), A.list('teacherRates')]);
       d.payments = pay; d.expenses = exp; d.payouts = po; tr.forEach(x => d.tRates[x.id] = x);
+      const [aj, pr] = await Promise.all([safe(A.list('payAdj')), safe(A.list('payroll'))]); d.adj = aj || []; d.payroll = pr || [];
     }
     if (can.sup()) d.regs = (await safe(A.list('registrations'))) || [];
     if (can.admin()) { const [us, inv] = await Promise.all([A.list('users'), A.list('invites')]); d.users = us; d.invites = inv; }
@@ -88,11 +91,16 @@ async function loadAll() {
     const t = S.prof.teacherId || '';
     const [st, at, rp, tr, po] = await Promise.all([A.list('students', [['teacherId', '==', t]]), A.list('attendance', [['teacherId', '==', t]]), A.list('reports', [['teacherId', '==', t]]), safe(A.get('teacherRates', t)), safe(A.list('payouts', [['teacherId', '==', t]]))]);
     d.students = st; d.att = at; d.reports = rp; if (tr) d.tRates[t] = tr; d.payouts = po || [];
+    const by = [['teacherId', '==', t]];
+    const [mo, mk, aj, pr] = await Promise.all([safe(A.list('monthlyReports', by)), safe(A.list('makeups', by)), safe(A.list('payAdj', by)), safe(A.list('payroll', by))]);
+    d.monthly = mo || []; d.makeups = mk || []; d.adj = aj || []; d.payroll = pr || [];
   } else if (r === 'parent') {
     for (const sid of S.prof.studentIds || []) {
       const [s, b, at, rp, pay] = await Promise.all([safe(A.get('students', sid)), safe(A.get('billing', sid)), safe(A.list('attendance', [['studentId', '==', sid]])), safe(A.list('reports', [['studentId', '==', sid]])), safe(A.list('payments', [['studentId', '==', sid]]))]);
       if (!s) continue;
       d.students.push(s); if (b) d.billing[sid] = b; d.att.push(...(at || [])); d.reports.push(...(rp || [])); d.payments.push(...(pay || []));
+      const [mo, mk] = await Promise.all([safe(A.list('monthlyReports', [['studentId', '==', sid], ['status', '==', 'published']])), safe(A.list('makeups', [['studentId', '==', sid]]))]);
+      d.monthly.push(...(mo || [])); d.makeups.push(...(mk || []));
     }
   }
   d.attMap = {}; d.att.forEach(a => d.attMap[a.date + '_' + a.studentId] = a);
@@ -104,8 +112,8 @@ async function reload() { await loadAll(); render(); }
 /* ---------------- shell ---------------- */
 function tabsFor(r) {
   return {
-    admin: [['dash', 'لوحة الإدارة'], ['regs', 'طلبات التسجيل'], ['sup', 'الإشراف'], ['acc', 'الحسابات'], ['students', 'الطلاب'], ['teachers', 'المعلمون'], ['people', 'الصلاحيات والنقل']],
-    supervisor: [['sup', 'الإشراف'], ['regs', 'طلبات التسجيل'], ['students', 'الطلاب']],
+    admin: [['dash', 'لوحة الإدارة'], ['regs', 'طلبات التسجيل'], ['sup', 'الإشراف'], ['monthly', 'التقارير الشهرية'], ['acc', 'الحسابات'], ['students', 'الطلاب'], ['teachers', 'المعلمون'], ['people', 'الصلاحيات والنقل']],
+    supervisor: [['sup', 'الإشراف'], ['monthly', 'التقارير الشهرية'], ['regs', 'طلبات التسجيل'], ['students', 'الطلاب']],
     accountant: [['acc', 'الحسابات']],
     teacher: [['mine', 'حلقاتي'], ['mymonth', 'شهري ومستحقاتي']],
     parent: [['kids', 'متابعة أبنائي']],
@@ -119,7 +127,7 @@ function render() {
   const newRegs = D.regs.filter(r => (r.status || 'new') === 'new').length;
   $('tabs').innerHTML = tabs.map(([k, l]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === S.tab}">${l}${k === 'regs' && newRegs ? ` <span class="cnt">${newRegs}</span>` : ''}</button>`).join('');
   $('tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); });
-  const V = { dash: viewDash, sup: viewSup, acc: viewAcc, students: viewStudents, teachers: viewTeachers, people: viewPeople, regs: viewRegs, mine: viewMine, mymonth: viewMyMonth, kids: viewKids }[S.tab];
+  const V = { dash: viewDash, sup: viewSup, acc: viewAcc, students: viewStudents, teachers: viewTeachers, people: viewPeople, regs: viewRegs, monthly: viewMonthly, mine: viewMine, mymonth: viewMyMonth, kids: viewKids }[S.tab];
   $('main').innerHTML = V ? V() : '';
   afterRender();
 }
@@ -137,7 +145,7 @@ const daysOfMonth = m => { const [y, mo] = m.split('-').map(Number); const n = n
 const durOf = s => Number(s && s.duration) || 30;
 function scheduledIn(m, students = D.students, upto = U.today()) {
   const out = [];
-  for (const d of daysOfMonth(m)) { if (d > upto) break; out.push(...U.occurrencesOn(students, d, ACAD_TZ).map(o => ({ ...o, date: d }))); }
+  for (const d of daysOfMonth(m)) { if (d > upto) break; out.push(...sessionsOn(d, students).map(o => ({ ...o, date: d }))); }
   return out;
 }
 function monthNav() { return `<div class="nav"><button type="button" data-act="mprev" aria-label="الشهر السابق">›</button><span>${U.monthLabel(S.month)}</span><button type="button" data-act="mnext" aria-label="الشهر التالي">‹</button></div>`; }
@@ -145,17 +153,17 @@ function dayNav() { const isT = S.date === U.today(); return `<div class="nav"><
 const chip = (txt, cls = '') => `<span class="chip ${cls}">${esc(txt)}</span>`;
 const pkgChip = s => { if (D.billing[s.id] && D.billing[s.id].free) return chip('بدون رسوم', 'ok'); const p = pkg(s); return p ? chip(p.txt, p.cls) : ''; };
 function monthCounts(sid, m) {
-  const c = { present: 0, late: 0, absent: 0, excused: 0 };
+  const c = { present: 0, late: 0, absent: 0, excused: 0, tabsent: 0, resched: 0 };
   D.att.filter(a => a.studentId === sid && a.month === m).forEach(a => c[a.status] !== undefined && c[a.status]++);
   return c;
 }
 function dotsFor(s, m) {
   const t = U.today();
-  const items = daysOfMonth(m).filter(d => rec(d, s.id) || U.occurrencesOn([s], d, ACAD_TZ).length);
+  const items = daysOfMonth(m).filter(d => rec(d, s.id) || sessionsOn(d, [s]).length);
   if (!items.length) return '<span class="note">لا حلقات في هذا الشهر</span>';
   return `<div class="dots">${items.map(d => { const r = rec(d, s.id); const k = r && ST[r.status] ? ST[r.status].c : d <= t ? 'none' : ''; return `<span class="dot ${k}" title="${fmtDate(d)}${r && ST[r.status] ? ' · ' + ST[r.status].l : ''}">${Number(d.slice(8))}</span>`; }).join('')}</div>`;
 }
-const legend = () => `<div class="chips">${chip('حضر', 'ok')}${chip('تأخر', 'late')}${chip('غاب', 'miss')}${chip('اعتذر', 'exc')}${chip('غاب المعلم', 'tab')}<span class="chip" style="background:none;border:1.5px dashed var(--miss);color:var(--miss)">فاتت ولم تُسجَّل</span></div>`;
+const legend = () => `<div class="chips">${chip('حضر', 'ok')}${chip('تأخر', 'late')}${chip('غاب', 'miss')}${chip('اعتذر', 'exc')}${chip('غاب المعلم', 'tab')}${chip('تأجلت', 'res')}<span class="chip" style="background:none;border:1.5px dashed var(--miss);color:var(--miss)">فاتت ولم تُسجَّل</span></div>`;
 
 /* ---------------- session cards (supervisor + teacher) ---------------- */
 function sessionCard(o, opts = {}) {
@@ -163,12 +171,13 @@ function sessionCard(o, opts = {}) {
   const canMark = can.sup() || role() === 'teacher';
   const link = U.safeLink(s.link || (D.teachers[s.teacherId] || {}).room);
   return `<article class="card ${cur ? 's-' + cur : ''}">
-    <div class="row"><div class="who"><b>${esc(s.name)}${o.slot.review ? ' ' + chip('مراجعة', 'late') : ''}</b><span>${opts.showTeacher ? esc(tName(s.teacherId)) + ' · ' : ''}${durOf(s)} دقيقة · الطالب في ${esc(U.zoneName(U.kTz(s)))}</span></div>
+    <div class="row"><div class="who"><b>${esc(s.name)}${o.slot.review ? ' ' + chip('مراجعة', 'late') : ''}${o.slot.makeup ? ' ' + chip('تعويضية', 'res') : ''}</b><span>${opts.showTeacher ? esc(tName(s.teacherId)) + ' · ' : ''}${durOf(s)} دقيقة · الطالب في ${esc(U.zoneName(U.kTz(s)))}</span></div>
     <div class="time"><b>${fmtTime(U.localTime(o.ms, U.VIEW_TZ))}</b><span>بتوقيتك</span></div></div>
-    <div class="chips">${rp ? chip('التقرير مكتوب', 'ok') : chip('بلا تقرير', r && ['absent', 'excused', 'tabsent'].includes(cur) ? '' : 'warn')}${opts.pkg ? pkgChip(s) : ''}</div>
+    <div class="chips">${rp ? chip('التقرير مكتوب', 'ok') : chip('بلا تقرير', r && ['absent', 'excused', 'tabsent', 'resched'].includes(cur) ? '' : 'warn')}${opts.pkg ? pkgChip(s) : ''}${mkFor(s.id, S.date) ? chip('التعويض: ' + fmtDay(mkFor(s.id, S.date).date) + ' ' + fmtTime(mkFor(s.id, S.date).time), 'res') : ''}</div>
     <div class="marks">${ST_KEYS.map(k => `<button class="mark ${ST[k].c}" type="button" data-act="mark" data-sid="${s.id}" data-st="${k}" aria-pressed="${cur === k}" ${canMark ? '' : 'disabled'}>${ST[k].l}</button>`).join('')}</div>
     <div class="actions"><button class="btn blue sm" type="button" data-act="report" data-sid="${s.id}">${rp ? 'تعديل التقرير' : 'كتابة تقرير الحصة'}</button>
     ${rp ? `<button class="btn ghost sm" type="button" data-act="copyrep" data-sid="${s.id}">نسخ رسالة الأهل</button>` : ''}
+    ${canMark && ['resched', 'tabsent', 'excused'].includes(cur) && !o.slot.makeup ? `<button class="btn ghost sm" type="button" data-act="mkup" data-sid="${s.id}">${mkFor(s.id, S.date) ? 'تعديل موعد التعويض' : 'جدولة حصة تعويضية'}</button>` : ''}
     ${link ? `<a class="btn ghost sm" href="${esc(link)}" target="_blank" rel="noopener">دخول الحلقة</a>` : ''}
     ${U.waLink(s.contact) ? `<a class="btn ghost sm" href="${U.waLink(s.contact)}" target="_blank" rel="noopener">واتساب الأهل</a>` : ''}</div>
   </article>`;
@@ -226,7 +235,7 @@ function viewDash() {
   const recd = sched.filter(o => rec(o.date, o.s.id));
   const mAtt = D.att.filter(a => a.month === m);
   const came = mAtt.filter(a => a.status === 'present' || a.status === 'late').length;
-  const counted = mAtt.filter(a => a.status !== 'excused' && a.status !== 'tabsent').length;
+  const counted = mAtt.filter(a => !['excused', 'tabsent', 'resched'].includes(a.status)).length;
   const newS = D.students.filter(s => (s.since || '').slice(0, 7) === m);
   const money = moneyOf(m);
   const due = D.students.map(s => ({ s, p: pkg(s) })).filter(x => x.p && x.p.due && !U.isPaused(x.s));
@@ -236,7 +245,7 @@ function viewDash() {
     const rc = sc.filter(o => rec(o.date, o.s.id)).length;
     const rpc = sc.filter(o => repOf(o.date, o.s.id)).length;
     const ta = mAtt.filter(a => a.teacherId === id);
-    const tc = ta.filter(a => a.status === 'present' || a.status === 'late').length, tn = ta.filter(a => a.status !== 'excused' && a.status !== 'tabsent').length;
+    const tc = ta.filter(a => a.status === 'present' || a.status === 'late').length, tn = ta.filter(a => !['excused', 'tabsent', 'resched'].includes(a.status)).length;
     return `<tr><td><b>${esc(t.name)}</b></td><td class="num">${st.filter(s => !U.isPaused(s)).length}</td><td class="num">${sc.length}</td><td class="num">${pct(rc, sc.length)}</td><td class="num">${pct(rpc, sc.length)}</td><td class="num">${pct(tc, tn)}</td></tr>`;
   }).join('');
   return `<div class="bar"><h1 class="grow">لوحة الإدارة</h1>${monthNav()}</div>
@@ -265,7 +274,7 @@ function alerts() {
   const out = [], t = U.today(), m = S.month === U.thisMonth() ? S.month : U.thisMonth();
   const from = U.addDays(t, -7);
   const missing = [];
-  for (let d = from; d < t; d = U.addDays(d, 1)) U.occurrencesOn(D.students, d, ACAD_TZ).forEach(o => { if (!rec(d, o.s.id)) missing.push({ d, s: o.s }); });
+  for (let d = from; d < t; d = U.addDays(d, 1)) sessionsOn(d).forEach(o => { if (!rec(d, o.s.id)) missing.push({ d, s: o.s }); });
   if (missing.length) out.push({ cls: 'red', h: `${missing.length} حصة في آخر ٧ أيام لم يُسجَّل حضورها`, b: missing.slice(0, 6).map(x => x.s.name + ' (' + fmtDate(x.d) + ' · ' + tName(x.s.teacherId) + ')').join('، ') + (missing.length > 6 ? '…' : '') });
   for (const s of active()) {
     const c = monthCounts(s.id, m);
@@ -274,6 +283,8 @@ function alerts() {
     if ((s.since || '') <= U.addDays(t, -14) && (age === null || age > 14)) out.push({ cls: 'amber', h: `${s.name}: ${age === null ? 'لا يوجد أي تقرير حصة' : 'آخر تقرير قبل ' + age + ' يومًا'}`, b: 'المعلم: ' + tName(s.teacherId) });
     const p = pkg(s); if (p && p.due) out.push({ cls: p.cls === 'miss' ? 'red' : 'amber', h: `${s.name}: ${p.txt}`, b: 'تجديد الباقة' });
   }
+  dueFollowUps().forEach(c => { const s = sById(c.studentId); if (s) out.push({ cls: 'amber', h: `متابعة مع أهل ${s.name} (${fmtDate(c.next)})`, b: (CT_WHY[c.reason] || '') + (c.notes ? ' · ' + c.notes : '') }); });
+  if (can.sup()) { const w = D.monthly.filter(r => r.status === 'submitted').length; if (w) out.push({ cls: 'amber', h: `${w} تقرير شهري بانتظار اعتمادك`, b: 'من تبويب «التقارير الشهرية».' }); }
   return out;
 }
 function alertsList(max = 50) {
@@ -284,8 +295,8 @@ function alertsList(max = 50) {
 
 /* ================= SUPERVISION ================= */
 function viewSup() {
-  const list = U.occurrencesOn(D.students, S.date, ACAD_TZ).filter(o => S.tf === 'all' || o.s.teacherId === S.tf);
-  const cnt = { present: 0, late: 0, absent: 0, excused: 0, tabsent: 0, none: 0, rep: 0 };
+  const list = sessionsOn(S.date).filter(o => S.tf === 'all' || o.s.teacherId === S.tf);
+  const cnt = { present: 0, late: 0, absent: 0, excused: 0, tabsent: 0, resched: 0, none: 0, rep: 0 };
   list.forEach(o => { const r = rec(S.date, o.s.id); r && ST[r.status] ? cnt[r.status]++ : cnt.none++; if (repOf(S.date, o.s.id)) cnt.rep++; });
   const m = U.thisMonth(), sched = scheduledIn(m);
   const quality = Object.entries(D.teachers).map(([id, t]) => {
@@ -297,7 +308,7 @@ function viewSup() {
   <div class="bar"><div class="pills">${[['all', 'كل المعلمين'], ...Object.entries(D.teachers).map(([id, t]) => [id, t.name])].map(([v, l]) => `<label><input type="radio" name="tf" value="${esc(v)}" ${S.tf === v ? 'checked' : ''} data-act="tf"><span>${esc(l)}</span></label>`).join('')}</div></div>
   <div class="cols3">
     <section class="grid" style="align-content:start">
-      <div class="chips">${chip(list.length + ' حصة')}${cnt.present ? chip('حضر ' + cnt.present, 'ok') : ''}${cnt.late ? chip('تأخر ' + cnt.late, 'late') : ''}${cnt.absent ? chip('غاب ' + cnt.absent, 'miss') : ''}${cnt.excused ? chip('اعتذر ' + cnt.excused, 'exc') : ''}${cnt.tabsent ? chip('غاب المعلم ' + cnt.tabsent, 'tab') : ''}${cnt.none ? chip('لم يُسجَّل ' + cnt.none, 'warn') : ''}${chip('تقارير ' + cnt.rep + ' من ' + list.length)}</div>
+      <div class="chips">${chip(list.length + ' حصة')}${cnt.present ? chip('حضر ' + cnt.present, 'ok') : ''}${cnt.late ? chip('تأخر ' + cnt.late, 'late') : ''}${cnt.absent ? chip('غاب ' + cnt.absent, 'miss') : ''}${cnt.excused ? chip('اعتذر ' + cnt.excused, 'exc') : ''}${cnt.tabsent ? chip('غاب المعلم ' + cnt.tabsent, 'tab') : ''}${cnt.resched ? chip('تأجلت ' + cnt.resched, 'res') : ''}${cnt.none ? chip('لم يُسجَّل ' + cnt.none, 'warn') : ''}${chip('تقارير ' + cnt.rep + ' من ' + list.length)}</div>
       ${list.length ? `<div class="cards">${list.map(o => sessionCard(o, { showTeacher: true, pkg: true })).join('')}</div>` : '<div class="empty">لا حلقات في هذا اليوم.</div>'}
     </section>
     <aside class="grid" style="align-content:start">
@@ -320,7 +331,12 @@ function duesOf(tid, m) {
   const feeTotal = full ? D.payments.filter(p => p.month === m && (sById(p.studentId) || {}).teacherId === tid)
     .reduce((n, p) => n + (p.egp != null ? Number(p.egp) : U.toEGP(D.rates, p.amount, p.currency)), 0) : 0;
   const paid = D.payouts.filter(p => p.teacherId === tid && p.month === m).reduce((n, p) => n + (Number(p.amount) || 0), 0);
-  return { sessions: recs.length, hours: minutes / 60, rate, full, due: full ? feeTotal : minutes / 60 * rate, paid };
+  const base = full ? feeTotal : minutes / 60 * rate;
+  const aj = D.adj.filter(a => a.teacherId === tid && a.month === m);
+  const bonus = aj.filter(a => a.kind === 'bonus').reduce((n, a) => n + (Number(a.amount) || 0), 0);
+  const deduction = aj.filter(a => a.kind === 'deduction').reduce((n, a) => n + (Number(a.amount) || 0), 0);
+  const approved = D.payroll.find(p => p.teacherId === tid && p.month === m) || null;
+  return { sessions: recs.length, hours: minutes / 60, rate, full, base, bonus, deduction, due: base + bonus - deduction, paid, approved };
 }
 const payLbl = x => x.full ? 'مبلغ الطالب كاملًا' : x.rate ? 'أجر الساعة ' + fmtN(x.rate) + ' ج.م' : '';
 function moneyOf(m) {
@@ -337,7 +353,8 @@ function viewAcc() {
   const due = D.students.map(s => ({ s, p: pkg(s) })).filter(x => x.p && x.p.due).sort((a, b) => (a.p.cls === 'miss' ? 0 : 1) - (b.p.cls === 'miss' ? 0 : 1));
   const pays = D.payments.filter(p => p.month === m).sort((a, b) => b.date.localeCompare(a.date));
   const exps = D.expenses.filter(e => e.month === m).sort((a, b) => b.date.localeCompare(a.date));
-  const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); return `<tr><td><b>${esc(t.name)}</b></td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.full ? 'مبلغ الطالب كاملًا' : x.rate ? fmtN(x.rate) : '<span class="chip warn">حدّد الأجر</span>'}</td><td class="num">${fmtN(x.due)}</td><td class="num">${fmtN(x.paid)}</td><td class="num"><b>${fmtN(x.due - x.paid)}</b></td><td><button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></td></tr>`; }).join('');
+  const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); return `<tr><td><b>${esc(t.name)}</b><br>${payStatus(x)}</td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.full ? 'مبلغ الطالب كاملًا' : x.rate ? fmtN(x.rate) : '<span class="chip warn">حدّد الأجر</span>'}</td><td class="num">${fmtN(x.base)}</td><td class="num">${x.bonus ? '+' + fmtN(x.bonus) : ''}${x.bonus && x.deduction ? '<br>' : ''}${x.deduction ? '<span style="color:var(--crimson)">−' + fmtN(x.deduction) + '</span>' : ''}${x.bonus || x.deduction ? '' : '—'}</td><td class="num"><b>${fmtN(x.due)}</b></td><td class="num">${fmtN(x.paid)}</td><td class="num"><b>${fmtN(x.due - x.paid)}</b></td><td><div class="chips" style="flex-wrap:nowrap"><button class="btn ghost sm" type="button" data-act="adj" data-t="${id}">مكافأة/خصم</button>${x.approved && Math.round(x.due) === Number(x.approved.total) ? `<button class="btn ghost sm" type="button" data-act="payundo" data-t="${id}">إلغاء الاعتماد</button>` : `<button class="btn blue sm" type="button" data-act="payok" data-t="${id}">${x.approved ? 'إعادة الاعتماد' : 'اعتماد'}</button>`}<button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></div></td></tr>`; }).join('');
+  const rnCount = k => due.filter(({ s }) => (renewalOf(D.billing[s.id]).status || 'none') === k).length;
   return `<div class="bar"><h1 class="grow">الحسابات</h1>${monthNav()}</div>
   <div class="kpis">
     ${kpi('التحصيل الفعلي', fmtN(M.collected) + ' ج.م', `${pays.length} دفعة في ${U.monthLabel(m)}`)}
@@ -348,15 +365,16 @@ function viewAcc() {
   </div>
   <div class="cols2">
     <section class="panel"><div class="ph"><h2>التجديدات المستحقة (${due.length})</h2></div>
-      ${due.length ? `<div class="tscroll"><table><thead><tr><th>الطالب</th><th>الحالة</th><th class="num">الرسوم</th><th></th></tr></thead><tbody>${due.map(({ s, p }) => { const b = D.billing[s.id] || {}; return `<tr><td><b>${esc(s.name)}</b><br><span class="note">${esc(tName(s.teacherId))}</span></td><td>${chip(p.txt, p.cls)}</td><td class="num">${b.fee ? fmtN(b.fee) + ' ' + esc(U.curName(b.currency)) : '—'}</td><td><button class="btn red sm" type="button" data-act="pay" data-sid="${s.id}">تسجيل دفعة</button></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="alert"><span>لا تجديدات مستحقة الآن.</span></div>'}
+      ${due.length ? `<div class="chips" style="margin-bottom:8px">${chip('لم يُتواصل ' + rnCount('none'), 'warn')}${chip('قيد المتابعة ' + (rnCount('reminded') + rnCount('interested') + rnCount('pending')), 'late')}${chip('لن يجدّد ' + rnCount('stop'), 'miss')}</div>
+      <div class="tscroll"><table><thead><tr><th>الطالب</th><th>الباقة</th><th class="num">الرسوم</th><th>متابعة التجديد</th><th></th></tr></thead><tbody>${due.map(({ s, p }) => { const b = D.billing[s.id] || {}; return `<tr><td><b>${esc(s.name)}</b><br><span class="note">${esc(tName(s.teacherId))}</span></td><td>${chip(p.txt, p.cls)}<br>${chip(p.cls === 'miss' ? 'الدفع متأخر' : 'الدفع مستحق قريبًا', p.cls === 'miss' ? 'miss' : 'warn')}</td><td class="num">${b.fee ? fmtN(b.fee) + ' ' + esc(U.curName(b.currency)) : '—'}</td><td>${renewalCell(s)}</td><td><div class="chips" style="flex-wrap:nowrap"><button class="btn red sm" type="button" data-act="pay" data-sid="${s.id}">تسجيل دفعة</button>${U.waLink(s.contact) ? `<a class="btn wa sm" href="${U.waLink(s.contact)}?text=${encodeURIComponent('السلام عليكم ' + (s.parentName || '') + '، نذكّركم بموعد تجديد باقة ' + s.name + ' في ' + (CONFIG.academy || 'أكاديمية صلة') + ' 🌿')}" target="_blank" rel="noopener">تذكير</a>` : ''}</div></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="alert"><span>لا تجديدات مستحقة الآن.</span></div>'}
     </section>
     <section class="panel"><div class="ph"><h2>الدفعات المستلمة</h2><button class="btn blue sm" type="button" data-act="pay">+ دفعة</button></div>
       ${pays.length ? `<div class="tscroll"><table><thead><tr><th>التاريخ</th><th>الطالب</th><th class="num">المبلغ</th><th class="num">بالجنيه</th><th></th></tr></thead><tbody>${pays.map(p => `<tr><td>${fmtDate(p.date)}</td><td>${esc((sById(p.studentId) || {}).name || p.studentId)}</td><td class="num">${fmtN(p.amount)} ${esc(U.curName(p.currency))}</td><td class="num">${fmtN(p.egp != null ? p.egp : U.toEGP(D.rates, p.amount, p.currency))}</td><td><button class="linkbtn" type="button" data-act="delpay" data-id="${p.id}" aria-label="حذف الدفعة">حذف</button></td></tr>`).join('')}<tr class="total"><td colspan="3">المجموع</td><td class="num">${fmtN(M.collected)}</td><td></td></tr></tbody></table></div>` : '<div class="alert"><span>لم تُسجَّل دفعات في هذا الشهر.</span></div>'}
     </section>
   </div>
   <section class="panel" style="margin-top:14px"><div class="ph"><h2>مستحقات المعلمين · ${U.monthLabel(m)}</h2><label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="payAbsent" style="width:auto" ${D.main.payAbsent !== false ? 'checked' : ''} ${can.admin() ? '' : 'disabled'}> احتساب غياب الطالب دون عذر للمعلم</label></div>
-    <div class="tscroll"><table><thead><tr><th>المعلم</th><th class="num">حصص</th><th class="num">ساعات</th><th class="num">أجر الساعة (ج.م)</th><th class="num">المستحق</th><th class="num">المصروف</th><th class="num">المتبقي</th><th></th></tr></thead><tbody>${tRows}</tbody></table></div>
-    <p class="note">المستحق = ساعات الحصص المسجّلة (حضر وتأخر${D.main.payAbsent !== false ? ' وغاب' : ''}) × أجر الساعة. ومن نوع أجره «مبلغ الطالب كاملًا» فمستحقه كل ما دفعه طلابه في الشهر. عدّل ذلك من تبويب «المعلمون».</p>
+    <div class="tscroll"><table><thead><tr><th>المعلم</th><th class="num">حصص</th><th class="num">ساعات</th><th class="num">أجر الساعة (ج.م)</th><th class="num">الأساسي</th><th class="num">مكافآت/خصومات</th><th class="num">الصافي</th><th class="num">المصروف</th><th class="num">المتبقي</th><th></th></tr></thead><tbody>${tRows}</tbody></table></div>
+    <p class="note">الأساسي = ساعات الحصص المسجّلة (حضر وتأخر${D.main.payAbsent !== false ? ' وغاب' : ''}) × أجر الساعة، ومن نوع أجره «مبلغ الطالب كاملًا» فأساسيه كل ما دفعه طلابه في الشهر. الصافي = الأساسي + المكافآت − الخصومات. «اعتماد» يثبّت الصافي ويُظهره للمعلم معتمدًا، وإن تغيّر بعده يظهر تنبيه «تغيّر بعد الاعتماد».</p>
   </section>
   <div class="cols2" style="margin-top:14px">
     <section class="panel"><div class="ph"><h2>المصروفات</h2><button class="btn blue sm" type="button" data-act="expense">+ مصروف</button></div>
@@ -432,6 +450,7 @@ function viewStudents() {
     <div class="chips">${chip('حضر ' + (c.present + c.late), 'ok')}${c.absent ? chip('غاب ' + c.absent, 'miss') : ''}${c.excused ? chip('اعتذر ' + c.excused, 'exc') : ''}<span class="note">هذا الشهر</span></div>
     ${lr ? `<div class="rep"><span><b>آخر تسميع:</b> ${esc(lr.newMem || '—')} · ${fmtDate(lr.date)}</span>${lr.homework ? `<span><b>الواجب:</b> ${esc(lr.homework)}</span>` : ''}</div>` : '<span class="note">لا تقارير بعد.</span>'}
     ${s.parentName || s.contact ? `<span class="sub">ولي الأمر: ${esc(s.parentName || '')} ${s.contact ? '· <span dir="ltr">' + esc(s.contact) + '</span>' : ''}</span>` : ''}
+    ${can.staff() ? (() => { const cs = D.contacts.filter(c => c.studentId === s.id); const dueC = cs.filter(c => c.next && !c.done && c.next <= U.today()).length; return `<div class="chips"><button class="btn ghost sm" type="button" data-act="ctlog" data-sid="${s.id}">سجل التواصل مع الأهل${cs.length ? ' (' + cs.length + ')' : ''}</button>${dueC ? chip('متابعة مستحقة', 'warn') : ''}</div>`; })() : ''}
   </article>`; }).join('')}</div>` : '<div class="empty">لا طلاب مطابقون.</div>'}`;
 }
 function openStudent(sid) {
@@ -631,7 +650,7 @@ async function runImport() {
 
 /* ================= TEACHER ================= */
 function viewMine() {
-  const list = U.occurrencesOn(D.students, S.date, ACAD_TZ);
+  const list = sessionsOn(S.date);
   const t = D.teachers[S.prof.teacherId] || {};
   return `<div class="bar"><h1 class="grow">حلقاتي${t.name ? ' · ' + esc(t.name) : ''}</h1>${dayNav()}</div>
   ${U.safeLink(t.room) ? `<div class="bar"><a class="btn blue" href="${esc(U.safeLink(t.room))}" target="_blank" rel="noopener">دخول غرفتي الثابتة</a></div>` : ''}
@@ -642,9 +661,10 @@ function viewMyMonth() {
   const tid = S.prof.teacherId, m = S.month, x = duesOf(tid, m);
   const pays = D.payouts.filter(p => p.month === m);
   return `<div class="bar"><h1 class="grow">شهري ومستحقاتي</h1>${monthNav()}</div>
-  <div class="kpis">${kpi('حصص محتسبة', x.sessions, x.hours.toFixed(1) + ' ساعة')}${x.full ? kpi('نوع الأجر', 'مبلغ الطالب كاملًا', 'تحسبه الحسابات من دفعات طلابك') : kpi('أجر الساعة', x.rate ? fmtN(x.rate) + ' ج.م' : '—', 'تحدده الحسابات')}${x.full ? kpi('ما صُرف لك', fmtN(x.paid) + ' ج.م', U.monthLabel(m)) : kpi('المستحق', fmtN(x.due) + ' ج.م', 'صُرف ' + fmtN(x.paid) + ' ج.م') + kpi('المتبقي', fmtN(x.due - x.paid) + ' ج.م', U.monthLabel(m), x.due - x.paid > 0 ? 'red' : 'ok')}</div>
+  <div class="kpis">${kpi('حصص محتسبة', x.sessions, x.hours.toFixed(1) + ' ساعة')}${x.full ? kpi('نوع الأجر', 'مبلغ الطالب كاملًا', 'تحسبه الحسابات من دفعات طلابك') : kpi('أجر الساعة', x.rate ? fmtN(x.rate) + ' ج.م' : '—', 'تحدده الحسابات')}${x.full ? kpi('ما صُرف لك', fmtN(x.paid) + ' ج.م', U.monthLabel(m)) : kpi('المستحق', fmtN(x.due) + ' ج.م', (x.bonus ? 'مكافآت +' + fmtN(x.bonus) + ' · ' : '') + (x.deduction ? 'خصومات −' + fmtN(x.deduction) + ' · ' : '') + 'صُرف ' + fmtN(x.paid) + ' ج.م') + kpi('المتبقي', fmtN(x.due - x.paid) + ' ج.م', x.approved ? (Math.round(x.due) === Number(x.approved.total) ? 'معتمد من الحسابات' : 'تغيّر بعد الاعتماد · بانتظار إعادة الاعتماد') : 'لم يُعتمد بعد', x.due - x.paid > 0 ? 'red' : 'ok')}</div>
+  ${D.adj.filter(a => a.month === m).length ? `<section class="panel" style="margin-bottom:14px"><h2>مكافآت وخصومات ${U.monthLabel(m)}</h2>${D.adj.filter(a => a.month === m).map(a => `<div class="alert ${a.kind === 'deduction' ? 'red' : ''}"><span><b>${a.kind === 'deduction' ? '−' : '+'} ${fmtN(a.amount)} ج.م</b> · ${esc(a.reason || '')}</span></div>`).join('')}</section>` : ''}
   <section class="panel"><h2>طلابي هذا الشهر</h2>${legend()}
-  ${D.students.map(s => `<div class="grid" style="gap:6px;padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(s.name)}</b>${dotsFor(s, m)}</div>`).join('') || '<p class="note">لا طلاب.</p>'}</section>
+  ${D.students.map(s => `<div class="grid" style="gap:6px;padding:8px 0;border-bottom:1px solid var(--line)"><div class="row"><b>${esc(s.name)}</b><div class="chips">${mrChip(mrOf(s.id, m))}<button class="btn ghost sm" type="button" data-act="mrep" data-sid="${s.id}">التقرير الشهري</button></div></div>${dotsFor(s, m)}</div>`).join('') || '<p class="note">لا طلاب.</p>'}</section>
   ${pays.length ? `<section class="panel" style="margin-top:14px"><h2>ما صُرف لك</h2>${pays.map(p => `<div class="alert"><span><b>${fmtN(p.amount)} ج.م</b> · ${fmtDate(p.date)}${p.note ? ' · ' + esc(p.note) : ''}</span></div>`).join('')}</section>` : ''}`;
 }
 
@@ -665,11 +685,180 @@ function viewKids() {
         ${p ? kpi('الباقة', p.monthly ? (p.q ? p.done + ' من ' + p.q : '—') : p.done + ' من ' + p.q, p.txt, p.cls === 'miss' ? 'red' : '') : ''}
       </div>
       ${legend()}${dotsFor(s, m)}
+      ${(() => { const up = D.makeups.filter(k => k.studentId === s.id && k.date >= U.today()).sort((a, b) => a.date.localeCompare(b.date)); return up.length ? `<div class="chips">${up.map(k => { const ms = U.wallToMs(k.date, k.time || '00:00', ACAD_TZ); return chip('حصة تعويضية: ' + fmtDay(U.localDate(ms, U.kTz(s))) + ' ' + fmtTime(U.localTime(ms, U.kTz(s))) + ' بتوقيت ' + U.zoneName(U.kTz(s)), 'res'); }).join('')}</div>` : ''; })()}
+      ${monthlyForParent(s)}
       <h3 style="font-size:1rem">آخر تقارير الحصص</h3>
       ${reps.length ? reps.map(r => `<div class="rep"><b>${fmtDay(r.date)}${r.rating ? ' · ' + esc(r.rating) : ''}</b>${r.newMem ? `<span>الحفظ الجديد: ${esc(r.newMem)}</span>` : ''}${r.review ? `<span>المراجعة: ${esc(r.review)}</span>` : ''}${r.homework ? `<span>الواجب: <b>${esc(r.homework)}</b></span>` : ''}${r.notes ? `<span>ملاحظة المعلم: ${esc(r.notes)}</span>` : ''}</div>`).join('') : '<p class="note">لا تقارير بعد.</p>'}
       ${U.safeLink(s.link || (D.teachers[s.teacherId] || {}).room) ? `<a class="btn red" style="align-self:flex-start" href="${esc(U.safeLink(s.link || (D.teachers[s.teacherId] || {}).room))}" target="_blank" rel="noopener">دخول الحلقة</a>` : ''}
       ${pays.length ? `<h3 style="font-size:1rem">الدفعات</h3><div class="chips">${pays.map(x => chip(fmtDate(x.date) + ' · ' + fmtN(x.amount) + ' ' + U.curName(x.currency), 'ok')).join('')}</div>` : ''}
     </section>`; }).join('')}</div>`;
+}
+
+/* ================= 1. MONTHLY REPORTS (teacher writes → supervisor approves → parent reads) ================= */
+const MR_ST = { draft: ['مسودة', 'exc'], submitted: ['بانتظار اعتماد المشرفة', 'late'], published: ['منشور لولي الأمر', 'ok'] };
+const mrOf = (sid, m) => D.monthly.find(r => r.studentId === sid && r.month === m);
+const mrChip = r => { const st = MR_ST[(r && r.status) || ''] || ['لم يُكتب', 'warn']; return chip(st[0], st[1]); };
+function mrStats(sid, m) { const c = monthCounts(sid, m); return { came: c.present + c.late, absent: c.absent, excused: c.excused + (c.tabsent || 0) + (c.resched || 0) }; }
+function viewMonthly() {
+  const m = S.month;
+  const rows = D.students.filter(s => S.tf === 'all' || s.teacherId === S.tf).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  const n = k => rows.filter(s => ((mrOf(s.id, m) || {}).status || 'none') === k).length;
+  return `<div class="bar"><h1 class="grow">التقارير الشهرية</h1>${monthNav()}</div>
+  <div class="bar"><select id="stf" style="max-width:220px"><option value="all">كل المعلمين</option>${Object.entries(D.teachers).map(([id, t]) => `<option value="${id}" ${S.tf === id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>
+    <div class="chips">${chip('بانتظار الاعتماد ' + n('submitted'), 'late')}${chip('منشور ' + n('published'), 'ok')}${chip('مسودة ' + n('draft'), 'exc')}${chip('لم يُكتب ' + n('none'), 'warn')}</div></div>
+  ${rows.length ? `<div class="cards">${rows.map(s => { const r = mrOf(s.id, m); const st = mrStats(s.id, m); return `<article class="card">
+    <div class="row"><div class="who"><b>${esc(s.name)}</b><span>${esc(tName(s.teacherId))} · حضر ${st.came}${st.absent ? ' · غاب ' + st.absent : ''}</span></div>${mrChip(r)}</div>
+    ${r && r.achieved ? `<span class="sub">${esc(r.achieved)}</span>` : ''}
+    <div class="bar" style="margin:0"><button class="btn ${r && r.status === 'submitted' ? 'red' : 'ghost'} sm" type="button" data-act="mrep" data-sid="${s.id}">${r && r.status === 'submitted' ? 'مراجعة واعتماد' : r ? 'فتح التقرير' : 'كتابة التقرير'}</button>
+    ${r && r.status === 'published' ? `<button class="btn ghost sm" type="button" data-act="mrcopy" data-sid="${s.id}">نسخ رسالة الأهل</button>` : ''}</div></article>`; }).join('')}</div>` : '<div class="empty">لا طلاب.</div>'}
+  <p class="note" style="margin-top:12px">يكتب المعلم التقرير ويرسله، فيظهر هنا «بانتظار اعتماد المشرفة». بعد الاعتماد يظهر لولي الأمر في بوابته. الحضور يُحسب تلقائيًا من سجلات الشهر.</p>`;
+}
+function openMonthly(sid) {
+  const s = sById(sid); if (!s) return; const m = S.month; const r = mrOf(sid, m) || {}; const st = mrStats(sid, m);
+  const sup = can.sup(); const locked = !sup && r.status === 'published';
+  const f = (id, l, v, ph = '', rows = 0) => `<div class="field"><label for="${id}">${l}</label>${rows ? `<textarea id="${id}" rows="${rows}" ${locked ? 'readonly' : ''} placeholder="${esc(ph)}">${esc(v || '')}</textarea>` : `<input id="${id}" value="${esc(v || '')}" ${locked ? 'readonly' : ''} placeholder="${esc(ph)}">`}</div>`;
+  openSheet(`<h2>التقرير الشهري: ${esc(s.name)}</h2>
+  <p class="note" style="margin:-6px 0 10px">${U.monthLabel(m)} · ${esc(tName(s.teacherId))} · ${mrChip(r.status ? r : null)}</p>
+  <div class="chips" style="margin-bottom:10px">${chip('حضر ' + st.came, 'ok')}${st.absent ? chip('غاب ' + st.absent, 'miss') : ''}${st.excused ? chip('اعتذار/تأجيل ' + st.excused, 'exc') : ''}</div>
+  <form id="mform" novalidate>
+    <div class="two">${f('m-start', 'بدأ الشهر من', r.start, 'مثلًا: سورة النبأ')}${f('m-end', 'وصل إلى', r.end, 'مثلًا: سورة عبس آية ٢٠')}</div>
+    ${f('m-ach', 'ما أنجزه هذا الشهر', r.achieved, 'الحفظ الجديد والمراجعة والتجويد', 2)}
+    <div class="two">${f('m-str', 'نقاط القوة', r.strengths, '', 2)}${f('m-imp', 'يحتاج تحسين', r.improve, '', 2)}</div>
+    ${f('m-next', 'هدف الشهر القادم', r.nextGoal, 'مثلًا: إتمام سورة عبس ومراجعة النبأ')}
+    ${f('m-tn', 'كلمة المعلم للأهل', r.teacherNote, '', 2)}
+    ${sup ? f('m-sn', 'ملاحظة المشرفة (تظهر للأهل)', r.supNote, '', 2) : r.supNote ? `<div class="alert"><span><b>ملاحظة المشرفة:</b> ${esc(r.supNote)}</span></div>` : ''}
+    <p class="err" id="m-err" hidden></p>
+    <div class="foot"><span class="note">${locked ? 'نُشر التقرير لولي الأمر. لتعديله تواصل مع المشرفة.' : ''}</span><div class="actions"><button class="btn ghost" type="button" data-act="close">إغلاق</button>
+    ${locked ? '' : sup ? `${r.status ? '<button class="btn ghost" type="button" id="m-back">إعادة للمعلم</button>' : ''}<button class="btn ghost" type="button" id="m-save">حفظ</button><button class="btn red" type="submit">اعتماد ونشر لولي الأمر</button>`
+      : `<button class="btn ghost" type="button" id="m-save">حفظ مسودة</button><button class="btn red" type="submit">إرسال للمشرفة</button>`}</div></div>
+  </form>`);
+  if (locked) return;
+  const save = async status => {
+    const body = { studentId: sid, teacherId: s.teacherId || '', month: m, start: $('m-start').value.trim(), end: $('m-end').value.trim(), achieved: $('m-ach').value.trim(), strengths: $('m-str').value.trim(), improve: $('m-imp').value.trim(), nextGoal: $('m-next').value.trim(), teacherNote: $('m-tn').value.trim(), status, updatedAt: Date.now(), by: S.user.uid };
+    if (sup) body.supNote = $('m-sn').value.trim(); else if (r.supNote) body.supNote = r.supNote;
+    if (status === 'published') { body.publishedAt = Date.now(); body.stats = st; }
+    if (status !== 'draft' && !body.achieved) { $('m-err').textContent = 'اكتب ما أنجزه الطالب هذا الشهر.'; $('m-err').hidden = false; return; }
+    try { await S.api.set('monthlyReports', m + '_' + sid, body); closeSheet(); toast(status === 'published' ? 'نُشر التقرير لولي الأمر' : status === 'submitted' ? 'أُرسل للمشرفة' : 'حُفظ'); await reload(); } catch (x) { fail(x); }
+  };
+  $('m-save').onclick = () => save(sup ? (r.status || 'draft') : 'draft');
+  if ($('m-back')) $('m-back').onclick = () => save('draft');
+  $('mform').onsubmit = e => { e.preventDefault(); save(sup ? 'published' : 'submitted'); };
+}
+function monthlyMsg(s, r) {
+  const st = r.stats || mrStats(s.id, r.month);
+  return `السلام عليكم ورحمة الله 🌿\nالتقرير الشهري لـ${s.name} – ${U.monthLabel(r.month)}\n\n✅ الحضور: ${st.came} حصة${st.absent ? ' · غاب ' + st.absent : ''}${r.start || r.end ? '\n📖 من: ' + (r.start || '—') + ' إلى: ' + (r.end || '—') : ''}${r.achieved ? '\n🌟 الإنجاز: ' + r.achieved : ''}${r.strengths ? '\n💪 نقاط القوة: ' + r.strengths : ''}${r.improve ? '\n🎯 يحتاج تحسين: ' + r.improve : ''}${r.nextGoal ? '\n🗓️ هدف الشهر القادم: ' + r.nextGoal : ''}${r.teacherNote ? '\n💬 كلمة المعلم: ' + r.teacherNote : ''}${r.supNote ? '\n📝 ملاحظة المشرفة: ' + r.supNote : ''}\n\nتجدون التقرير كاملًا في بوابة صلة 🤍\n${CONFIG.academy || 'أكاديمية صلة'}`;
+}
+function monthlyForParent(s) {
+  const pub = D.monthly.filter(r => r.studentId === s.id && r.status === 'published').sort((a, b) => b.month.localeCompare(a.month));
+  const r = pub.find(x => x.month === S.month) || pub[0]; if (!r) return '';
+  const st = r.stats || mrStats(s.id, r.month);
+  const line = (l, v) => v ? `<span><b>${l}:</b> ${esc(v)}</span>` : '';
+  return `<h3 style="font-size:1rem">التقرير الشهري · ${U.monthLabel(r.month)}</h3><div class="rep">${line('الحضور', st.came + ' حصة' + (st.absent ? ' · غاب ' + st.absent : ''))}${line('من', r.start)}${line('إلى', r.end)}${line('الإنجاز', r.achieved)}${line('نقاط القوة', r.strengths)}${line('يحتاج تحسين', r.improve)}${line('هدف الشهر القادم', r.nextGoal)}${line('كلمة المعلم', r.teacherNote)}${line('ملاحظة المشرفة', r.supNote)}</div>`;
+}
+
+/* ================= 2. MAKE-UP LESSONS (one-off sessions in academy time) ================= */
+/** Regular + make-up sessions on day D, in academy time. */
+function sessionsOn(D0, students = D.students) {
+  const ids = new Set(students.map(s => s.id));
+  const extra = D.makeups.filter(k => k.date === D0 && ids.has(k.studentId) && sById(k.studentId)).map(k => ({ s: sById(k.studentId), ms: U.wallToMs(k.date, k.time || '00:00', ACAD_TZ), slot: { time: k.time, makeup: true, id: k.id, forDate: k.forDate } }));
+  return U.occurrencesOn(students, D0, ACAD_TZ).concat(extra).sort((a, b) => a.ms - b.ms);
+}
+const mkFor = (sid, d) => D.makeups.find(k => k.studentId === sid && k.forDate === d);
+function openMakeup(sid) {
+  const s = sById(sid); if (!s) return; const ex = mkFor(sid, S.date);
+  openSheet(`<h2>حصة تعويضية: ${esc(s.name)}</h2><p class="note" style="margin:-6px 0 12px">بدل حصة ${fmtDay(S.date)} · ${esc(tName(s.teacherId))}</p><form id="kform" novalidate>
+    <div class="two"><div class="field"><label for="k-date">التاريخ</label><input id="k-date" type="date" value="${esc(ex ? ex.date : U.addDays(S.date, 1))}" min="${U.today()}"></div>
+    <div class="field"><label for="k-time">الساعة (بتوقيت مصر)</label><input id="k-time" type="time" value="${esc(ex ? ex.time : (U.slotsOf(s)[0] || {}).time || '')}"></div></div>
+    <div class="field"><label for="k-note">ملاحظة</label><input id="k-note" value="${esc(ex ? ex.note || '' : '')}" placeholder="مثلًا: باتفاق مع الأم"></div>
+    <p class="err" id="k-err" hidden></p>
+    <div class="foot">${ex ? '<button class="btn ghost" type="button" id="k-del" style="color:var(--crimson)">إلغاء التعويض</button>' : '<span></span>'}<div class="actions"><button class="btn ghost" type="button" data-act="close">إغلاق</button><button class="btn red" type="submit">حفظ الموعد</button></div></div></form>`);
+  if (ex) $('k-del').onclick = async () => { try { await S.api.del('makeups', ex.id); closeSheet(); toast('أُلغي التعويض'); await reload(); } catch (x) { fail(x); } };
+  $('kform').onsubmit = async e => {
+    e.preventDefault(); const date = $('k-date').value, time = $('k-time').value;
+    if (!date || !time) { $('k-err').textContent = 'اختر التاريخ والساعة.'; $('k-err').hidden = false; return; }
+    if (sessionsOn(date, [s]).some(o => !o.slot.makeup)) { $('k-err').textContent = 'للطالب حلقة أساسية في هذا اليوم. اختر يومًا آخر.'; $('k-err').hidden = false; return; }
+    const tBusy = sessionsOn(date, D.students.filter(x => x.teacherId === s.teacherId && x.id !== sid)).find(o => Math.abs(o.ms - U.wallToMs(date, time, ACAD_TZ)) < durOf(o.s) * 60000);
+    if (tBusy) { $('k-err').textContent = 'المعلم مشغول في هذا الوقت مع ' + tBusy.s.name + '.'; $('k-err').hidden = false; return; }
+    const body = { studentId: sid, teacherId: s.teacherId || '', date, time, forDate: S.date, note: $('k-note').value.trim(), at: Date.now(), by: S.user.uid };
+    try { if (ex) await S.api.set('makeups', ex.id, body); else await S.api.add('makeups', body); closeSheet(); toast('حُفظ موعد التعويض ' + fmtDate(date)); await reload(); } catch (x) { fail(x); }
+  };
+}
+
+/* ================= 3. RENEWAL FOLLOW-UP ================= */
+const RN_ST = { none: ['لم يُتواصل', 'warn'], reminded: ['أُرسل تذكير', 'late'], interested: ['مهتم بالتجديد', 'tab'], pending: ['بانتظار الدفع', 'late'], renewed: ['جدّد', 'ok'], paused: ['توقف مؤقت', 'exc'], stop: ['لن يجدّد', 'miss'] };
+const RN_WHY = ['السعر', 'المواعيد', 'المعلم', 'انشغال الطفل', 'سفر', 'مشكلة في الخدمة', 'انتقل لأكاديمية أخرى', 'لا يرد', 'أخرى'];
+const cycleKey = b => (b && (b.paidThrough || b.cycleStart)) || '';
+const renewalOf = b => { const r = (b && b.renewal) || {}; return r.cycle === cycleKey(b) ? r : {}; };
+async function setRenewal(sid, patch) {
+  const b = D.billing[sid] || {}; const cur = renewalOf(b);
+  const renewal = { ...cur, ...patch, cycle: cycleKey(b), at: Date.now(), by: S.user.uid };
+  if (renewal.status !== 'stop') delete renewal.reason;
+  try { await S.api.set('billing', sid, { renewal }, true); D.billing[sid] = { ...b, renewal }; toast('حُفظت متابعة التجديد'); render(); } catch (x) { fail(x); }
+}
+function renewalCell(s) {
+  const r = renewalOf(D.billing[s.id]); const st = r.status || 'none';
+  return `<select data-rn="${s.id}" style="width:auto;max-width:170px">${Object.entries(RN_ST).map(([k, [l]]) => `<option value="${k}" ${st === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    ${st === 'stop' ? `<select data-rnwhy="${s.id}" style="width:auto;max-width:170px;margin-top:4px"><option value="">السبب؟</option>${RN_WHY.map(w => `<option ${r.reason === w ? 'selected' : ''}>${w}</option>`).join('')}</select>` : ''}`;
+}
+
+/* ================= 4. PARENT CONTACT LOG ================= */
+const CT_METHOD = { whatsapp: 'واتساب', call: 'مكالمة', meet: 'اجتماع', other: 'أخرى' };
+const CT_WHY = { academic: 'المستوى التعليمي', attendance: 'الحضور والغياب', renewal: 'التجديد', payment: 'الدفع', schedule: 'المواعيد', complaint: 'شكوى', other: 'أخرى' };
+const dueFollowUps = () => D.contacts.filter(c => c.next && !c.done && c.next <= U.today());
+function openContacts(sid) {
+  const s = sById(sid); if (!s) return;
+  const list = D.contacts.filter(c => c.studentId === sid).sort((a, b) => (b.date + (b.at || 0)).localeCompare(a.date + (a.at || 0)));
+  openSheet(`<h2>سجل التواصل مع أهل ${esc(s.name)}</h2><p class="note" style="margin:-6px 0 12px">ولي الأمر: ${esc(s.parentName || '—')} ${s.contact ? '· <span dir="ltr">' + esc(s.contact) + '</span>' : ''}</p>
+  <form id="cform" novalidate>
+    <div class="three"><div class="field"><label for="c-date">التاريخ</label><input id="c-date" type="date" value="${U.today()}"></div>
+    <div class="field"><label for="c-m">الوسيلة</label><select id="c-m">${Object.entries(CT_METHOD).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+    <div class="field"><label for="c-r">السبب</label><select id="c-r">${Object.entries(CT_WHY).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div></div>
+    <div class="field"><label for="c-n">ماذا قيل؟</label><textarea id="c-n" rows="2"></textarea></div>
+    <div class="two"><div class="field"><label for="c-next">موعد المتابعة القادمة (اختياري)</label><input id="c-next" type="date"></div><div class="field" style="align-self:end"><button class="btn red" type="submit">+ تسجيل التواصل</button></div></div>
+    <p class="err" id="c-err" hidden></p></form>
+  <h3 style="font-size:1rem;margin:6px 0">السجل (${list.length})</h3>
+  ${list.length ? list.map(c => `<div class="rep"><b>${fmtDate(c.date)} · ${esc(CT_METHOD[c.method] || c.method)} · ${esc(CT_WHY[c.reason] || c.reason)}</b>${c.notes ? `<span>${esc(c.notes)}</span>` : ''}<span class="note">${esc(c.byName || '')}${c.next ? ' · المتابعة: ' + fmtDate(c.next) + (c.done ? ' ✓ تمت' : '') : ''}</span>${c.next && !c.done ? `<button class="linkbtn" type="button" data-act="ctdone" data-id="${c.id}" data-sid="${sid}" style="align-self:flex-start">تمت المتابعة</button>` : ''}</div>`).join('') : '<p class="note">لا تواصل مسجّل بعد.</p>'}
+  <div class="foot"><span></span><button class="btn ghost" type="button" data-act="close">إغلاق</button></div>`);
+  $('cform').onsubmit = async e => {
+    e.preventDefault(); const notes = $('c-n').value.trim();
+    if (!notes) { $('c-err').textContent = 'اكتب ملخص التواصل.'; $('c-err').hidden = false; return; }
+    try { await S.api.add('contacts', { studentId: sid, date: $('c-date').value || U.today(), method: $('c-m').value, reason: $('c-r').value, notes, next: $('c-next').value || '', done: false, by: S.user.uid, byName: S.prof.name || '', at: Date.now() }); await reload(); openContacts(sid); toast('سُجّل التواصل'); } catch (x) { fail(x); }
+  };
+}
+async function contactDone(id, sid) { try { await S.api.set('contacts', id, { done: true }, true); await reload(); openContacts(sid); } catch (x) { fail(x); } }
+
+/* ================= 5. PAYROLL: bonuses, deductions, approval ================= */
+const adjOf = (tid, m) => D.adj.filter(a => a.teacherId === tid && a.month === m);
+const payrollOf = (tid, m) => D.payroll.find(p => p.teacherId === tid && p.month === m);
+function openAdjust(tid) {
+  const m = S.month; const list = adjOf(tid, m); const x = duesOf(tid, m);
+  openSheet(`<h2>مكافآت وخصومات ${esc(tName(tid))}</h2><p class="note" style="margin:-6px 0 12px">${U.monthLabel(m)} · الأساسي ${fmtN(x.base)} ج.م · الصافي ${fmtN(x.due)} ج.م</p>
+  <form id="aform" novalidate><div class="three"><div class="field"><label for="a-k">النوع</label><select id="a-k"><option value="bonus">مكافأة (+)</option><option value="deduction">خصم (−)</option></select></div>
+    <div class="field"><label for="a-amt">المبلغ (ج.م)</label><input id="a-amt" type="number" min="0" step="any" inputmode="decimal"></div>
+    <div class="field"><label for="a-r">السبب</label><input id="a-r" placeholder="مثلًا: تغطية حصص زميلة"></div></div>
+    <p class="err" id="a-err" hidden></p><div class="foot"><span class="note">يراها المعلم في «شهري ومستحقاتي».</span><button class="btn red" type="submit">+ إضافة</button></div></form>
+  ${list.length ? list.map(a => `<div class="alert ${a.kind === 'deduction' ? 'red' : ''}"><span><b>${a.kind === 'deduction' ? '−' : '+'} ${fmtN(a.amount)} ج.م</b> · ${esc(a.reason || '')}</span><button class="linkbtn" type="button" data-act="deladj" data-id="${a.id}" data-t="${tid}" style="margin-inline-start:auto">حذف</button></div>`).join('') : '<p class="note">لا مكافآت ولا خصومات هذا الشهر.</p>'}
+  <div class="foot"><span></span><button class="btn ghost" type="button" data-act="close">إغلاق</button></div>`);
+  $('aform').onsubmit = async e => {
+    e.preventDefault(); const amt = Number($('a-amt').value), reason = $('a-r').value.trim();
+    if (!amt || !reason) { $('a-err').textContent = 'اكتب المبلغ والسبب.'; $('a-err').hidden = false; return; }
+    try { await S.api.add('payAdj', { teacherId: tid, month: m, kind: $('a-k').value, amount: amt, reason, at: Date.now(), by: S.user.uid }); await reload(); openAdjust(tid); toast('أُضيف'); } catch (x) { fail(x); }
+  };
+}
+async function delAdjust(id, tid) { try { await S.api.del('payAdj', id); await reload(); openAdjust(tid); } catch (x) { fail(x); } }
+async function approvePayroll(tid, on) {
+  const m = S.month, id = m + '_' + tid, x = duesOf(tid, m);
+  try {
+    if (on) await S.api.set('payroll', id, { teacherId: tid, month: m, status: 'approved', total: Math.round(x.due), approvedAt: Date.now(), by: S.user.uid });
+    else await S.api.del('payroll', id);
+    toast(on ? 'اعتُمدت مستحقات ' + tName(tid) : 'أُلغي الاعتماد'); await reload();
+  } catch (e) { fail(e); }
+}
+function payStatus(x) {
+  if (!x.approved) return chip('محسوب', 'exc');
+  if (Math.round(x.due) !== Number(x.approved.total)) return chip('تغيّر بعد الاعتماد', 'warn');
+  if (x.paid >= x.due && x.due > 0) return chip('مصروف بالكامل', 'ok');
+  return chip('معتمد', 'tab');
 }
 
 /* ---------------- sheet & events ---------------- */
@@ -682,6 +871,8 @@ function afterRender() {
   const pa = $('payAbsent'); if (pa) pa.onchange = async () => { try { await S.api.set('settings', 'main', { payAbsent: pa.checked }, true); D.main.payAbsent = pa.checked; render(); } catch (x) { fail(x); } };
   const imp = $('impFile'); if (imp) imp.onchange = () => imp.files[0] && onImportFile(imp.files[0]);
   document.querySelectorAll('[data-regst]').forEach(s => s.onchange = () => setRegStatus(s.dataset.regst, s.value));
+  document.querySelectorAll('[data-rn]').forEach(s => s.onchange = () => setRenewal(s.dataset.rn, { status: s.value }));
+  document.querySelectorAll('[data-rnwhy]').forEach(s => s.onchange = () => setRenewal(s.dataset.rnwhy, { status: 'stop', reason: s.value }));
 }
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return; const a = t.dataset.act;
@@ -700,6 +891,9 @@ document.addEventListener('click', e => {
     invite: () => openInvite(null), editinv: () => openInvite(t.dataset.e), delinv: () => deleteInvite($('i-email').value.trim().toLowerCase(), t),
     import: runImport,
     rf: () => { S.rf = t.dataset.k; render(); }, regst: () => regToStudent(t.dataset.id), delreg: () => confirmDel(t, 'registrations', t.dataset.id),
+    mrep: () => openMonthly(t.dataset.sid), mrcopy: () => { const s = sById(t.dataset.sid), r = mrOf(t.dataset.sid, S.month); if (s && r) copyText(monthlyMsg(s, r)); },
+    mkup: () => openMakeup(t.dataset.sid), ctlog: () => openContacts(t.dataset.sid), ctdone: () => contactDone(t.dataset.id, t.dataset.sid),
+    adj: () => openAdjust(t.dataset.t), deladj: () => delAdjust(t.dataset.id, t.dataset.t), payok: () => approvePayroll(t.dataset.t, true), payundo: () => approvePayroll(t.dataset.t, false),
   }[a];
   if (go) go();
 });

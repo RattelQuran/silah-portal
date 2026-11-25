@@ -2,8 +2,8 @@
 export const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 export const DAY_ORDER = [6, 0, 1, 2, 3, 4, 5];
 export const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-export const ST = { present: { l: 'حضر', c: 'ok' }, late: { l: 'تأخر', c: 'late' }, absent: { l: 'غاب', c: 'miss' }, excused: { l: 'اعتذر', c: 'exc' }, tabsent: { l: 'غاب المعلم', c: 'tab' } };
-export const ST_KEYS = ['present', 'late', 'absent', 'excused', 'tabsent'];
+export const ST = { present: { l: 'حضر', c: 'ok' }, late: { l: 'تأخر', c: 'late' }, absent: { l: 'غاب', c: 'miss' }, excused: { l: 'اعتذر', c: 'exc' }, tabsent: { l: 'غاب المعلم', c: 'tab' }, resched: { l: 'تأجلت', c: 'res' } };
+export const ST_KEYS = ['present', 'late', 'absent', 'excused', 'tabsent', 'resched'];
 export const COUNTED = ['present', 'late', 'absent']; // deducted from the package
 export const RATINGS = ['ممتاز', 'جيد جدًا', 'جيد', 'يحتاج متابعة'];
 export const ROLES = { admin: 'الإدارة', supervisor: 'الإشراف', accountant: 'الحسابات', teacher: 'معلم', parent: 'ولي أمر' };
