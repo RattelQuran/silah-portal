@@ -20,7 +20,7 @@ const people = {
 
 before(async () => {
   srv = await serve(); b = await browser();
-  env = await initializeTestEnvironment({ projectId: P, firestore: { rules: readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8').replace(/function ownerEmail\(\) \{ return '[^']+'; \}/, "function ownerEmail() { return 'owner@test.local'; }"), host: '127.0.0.1', port: 8080 } });
+  env = await initializeTestEnvironment({ projectId: P, firestore: { rules: readFileSync(process.env.RULES_FILE || new URL('../firestore.rules', import.meta.url), 'utf8').replace(/function ownerEmail\(\) \{ return '[^']+'; \}/, "function ownerEmail() { return 'owner@test.local'; }"), host: '127.0.0.1', port: 8080 } });
   await env.clearFirestore();
   await fetch(`${AUTH}/emulator/v1/projects/${P}/accounts`, { method: 'DELETE' });
   await env.withSecurityRulesDisabled(async c => {

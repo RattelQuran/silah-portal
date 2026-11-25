@@ -1,0 +1,148 @@
+rules_version = '2';
+// Silah portal access rules. Roles live in /users/{uid}.role:
+//   admin · supervisor · accountant · teacher (users.teacherId) · parent (users.studentIds)
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ⚠️ Replace with the academy owner's email, in lower case (same as ownerEmail in public/config.js).
+    function ownerEmail() { return 'rattelquran476@gmail.com'; }
+
+    function signedIn() { return request.auth != null; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function profilePath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function hasProfile() { return signedIn() && exists(profilePath()); }
+    function me() { return get(profilePath()).data; }
+    function role() { return hasProfile() ? me().role : ''; }
+    function isAdmin() { return role() == 'admin'; }
+    function isSup() { return role() in ['admin', 'supervisor']; }
+    function isAcc() { return role() in ['admin', 'accountant']; }
+    function isStaff() { return role() in ['admin', 'supervisor', 'accountant']; }
+    function isTeacher() { return role() == 'teacher'; }
+    function myTeacher() { return me().teacherId; }
+    function isParentOf(sid) { return role() == 'parent' && sid in me().studentIds; }
+    function studentTeacher(sid) { return get(/databases/$(database)/documents/students/$(sid)).data.teacherId; }
+    // A teacher may write attendance / reports only for their own students, tagged with their own id.
+    function teacherWritesOwn() {
+      return isTeacher()
+        && request.resource.data.teacherId == myTeacher()
+        && studentTeacher(request.resource.data.studentId) == myTeacher()
+        && (resource == null || resource.data.teacherId == myTeacher());
+    }
+
+    // Invitations: admin writes; the invited person may read their own to create their profile.
+    match /invites/{email} {
+      allow read: if isAdmin() || (signedIn() && request.auth.token.email_verified && email == myEmail());
+      allow write: if isAdmin();
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      // First sign-in: the owner becomes admin; everyone else must copy their invite exactly.
+      allow create: if signedIn() && request.auth.uid == uid && request.auth.token.email_verified
+        && request.resource.data.email == myEmail()
+        && (
+          (myEmail() == ownerEmail() && request.resource.data.role == 'admin')
+          || (exists(/databases/$(database)/documents/invites/$(myEmail()))
+              && request.resource.data.role == get(/databases/$(database)/documents/invites/$(myEmail())).data.role
+              && request.resource.data.teacherId == get(/databases/$(database)/documents/invites/$(myEmail())).data.teacherId
+              && request.resource.data.studentIds == get(/databases/$(database)/documents/invites/$(myEmail())).data.studentIds)
+        );
+      allow update, delete: if isAdmin();
+    }
+
+    match /teachers/{id} {
+      allow read: if hasProfile();
+      allow write: if isAdmin();
+    }
+    // Teacher pay rates: accounts only (a teacher sees their own).
+    match /teacherRates/{id} {
+      allow read: if isAcc() || (isTeacher() && id == myTeacher());
+      allow write: if isAcc();
+    }
+
+    match /students/{id} {
+      allow read: if isStaff() || (isTeacher() && resource.data.teacherId == myTeacher()) || isParentOf(id);
+      allow write: if isSup();
+    }
+    // Fees and packages are kept apart from students so teachers never see money.
+    match /billing/{id} {
+      allow read: if isStaff() || isParentOf(id);
+      allow write: if isAcc();
+    }
+
+    match /attendance/{id} {
+      allow read: if isStaff() || (isTeacher() && resource.data.teacherId == myTeacher()) || isParentOf(resource.data.studentId);
+      allow create, update: if isSup() || teacherWritesOwn();
+      allow delete: if isSup() || (isTeacher() && resource.data.teacherId == myTeacher());
+    }
+    match /reports/{id} {
+      allow read: if isStaff() || (isTeacher() && resource.data.teacherId == myTeacher()) || isParentOf(resource.data.studentId);
+      allow create, update: if isSup() || teacherWritesOwn();
+      allow delete: if isSup();
+    }
+
+    match /payments/{id} {
+      allow read: if isAcc() || isParentOf(resource.data.studentId);
+      allow write: if isAcc();
+    }
+    match /expenses/{id} {
+      allow read, write: if isAcc();
+    }
+    match /payouts/{id} {
+      allow read: if isAcc() || (isTeacher() && resource.data.teacherId == myTeacher());
+      allow write: if isAcc();
+    }
+
+    // Trial-lesson requests from the public site: anyone may submit one well-formed request; only staff read or follow up.
+    match /registrations/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['parentName', 'studentName', 'studentAge', 'country', 'whatsapp', 'course', 'preferredTime', 'notes', 'status', 'source', 'at'])
+        && request.resource.data.status == 'new'
+        && request.resource.data.parentName is string && request.resource.data.parentName.size() > 0 && request.resource.data.parentName.size() <= 80
+        && request.resource.data.studentName is string && request.resource.data.studentName.size() > 0 && request.resource.data.studentName.size() <= 80
+        && request.resource.data.studentAge is int && request.resource.data.studentAge >= 4 && request.resource.data.studentAge <= 18
+        && request.resource.data.country is string && request.resource.data.country.size() <= 60
+        && request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() >= 8 && request.resource.data.whatsapp.size() <= 24
+        && request.resource.data.course in ['quran', 'tajweed', 'arabic']
+        && request.resource.data.preferredTime in ['morning', 'noon', 'evening', 'night']
+        && request.resource.data.get('notes', '') is string && request.resource.data.get('notes', '').size() <= 600
+        && request.resource.data.at is int;
+      allow read, update: if isSup();
+      allow delete: if isAdmin();
+    }
+
+    // Monthly reports: the teacher drafts/submits for their own students; the supervisor edits and publishes;
+    // a parent sees only published reports of their own children.
+    match /monthlyReports/{id} {
+      allow read: if isStaff() || (isTeacher() && resource.data.teacherId == myTeacher())
+        || (isParentOf(resource.data.studentId) && resource.data.status == 'published');
+      allow create, update: if isSup() || (teacherWritesOwn() && request.resource.data.status in ['draft', 'submitted']
+        && (resource == null || resource.data.status != 'published'));
+      allow delete: if isSup();
+    }
+    // One-off make-up lessons.
+    match /makeups/{id} {
+      allow read: if isStaff() || (isTeacher() && resource.data.teacherId == myTeacher()) || isParentOf(resource.data.studentId);
+      allow create, update: if isSup() || teacherWritesOwn();
+      allow delete: if isSup() || (isTeacher() && resource.data.teacherId == myTeacher());
+    }
+    // Log of contact with parents: staff only.
+    match /contacts/{id} {
+      allow read, create, update: if isStaff();
+      allow delete: if isSup();
+    }
+    // Teacher bonuses/deductions and payroll approval: accounts write; a teacher reads their own.
+    match /payAdj/{id} {
+      allow read: if isAcc() || (isTeacher() && resource.data.teacherId == myTeacher());
+      allow write: if isAcc();
+    }
+    match /payroll/{id} {
+      allow read: if isAcc() || (isTeacher() && resource.data.teacherId == myTeacher());
+      allow write: if isAcc();
+    }
+
+    match /settings/{id} {
+      allow read: if hasProfile();
+      allow write: if isAdmin() || (isAcc() && id == 'rates');
+    }
+  }
+}

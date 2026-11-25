@@ -6,8 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const FB = path.join(ROOT, 'tests', 'node_modules', 'firebase');
+const ROOT = process.env.PORTAL_ROOT || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const FB = path.join(path.dirname(fileURLToPath(import.meta.url)), 'node_modules', 'firebase');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.jpg': 'image/jpeg', '.json': 'application/json' };
 
 export function serve() {

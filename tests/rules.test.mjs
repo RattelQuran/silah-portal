@@ -21,7 +21,7 @@ const stranger = () => env.authenticatedContext('u-x', { email: 'x@test.local', 
 const reg = (over = {}) => ({ parentName: 'أم ريان', studentName: 'ريان', studentAge: 7, country: 'ألمانيا', whatsapp: '+49 151 000 0000', course: 'quran', preferredTime: 'evening', notes: '', status: 'new', source: 'site', at: Date.now(), ...over });
 
 before(async () => {
-  env = await initializeTestEnvironment({ projectId: 'demo-silah', firestore: { rules: readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8'), host: '127.0.0.1', port: 8080 } });
+  env = await initializeTestEnvironment({ projectId: 'demo-silah', firestore: { rules: readFileSync(process.env.RULES_FILE || new URL('../firestore.rules', import.meta.url), 'utf8'), host: '127.0.0.1', port: 8080 } });
 });
 after(async () => { await env.cleanup(); });
 beforeEach(async () => {
