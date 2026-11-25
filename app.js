@@ -5,9 +5,9 @@ const { esc, fmtN, fmtDate, fmtDay, fmtTime, ST, ST_KEYS, COUNTED, DAYS, DAY_ORD
 
 const ACAD_TZ = 'Africa/Cairo';           // dates of attendance/reports are keyed in academy time
 const $ = id => document.getElementById(id);
-const S = { api: null, user: null, prof: null, tab: '', date: U.today(), month: U.thisMonth(), q: '', tf: 'all', busy: new Set() };
+const S = { api: null, user: null, prof: null, tab: '', date: U.today(), month: U.thisMonth(), q: '', tf: 'all', rf: 'open', busy: new Set() };
 let D = emptyData();
-function emptyData() { return { teachers: {}, students: [], billing: {}, att: [], reports: [], payments: [], expenses: [], payouts: [], rates: {}, main: {}, tRates: {}, users: [], invites: [] }; }
+function emptyData() { return { teachers: {}, students: [], billing: {}, att: [], reports: [], payments: [], expenses: [], payouts: [], rates: {}, main: {}, tRates: {}, users: [], invites: [], regs: [] }; }
 
 /* ---------------- boot & auth ---------------- */
 let toastT;
@@ -82,6 +82,7 @@ async function loadAll() {
       const [pay, exp, po, tr] = await Promise.all([A.list('payments'), A.list('expenses'), A.list('payouts'), A.list('teacherRates')]);
       d.payments = pay; d.expenses = exp; d.payouts = po; tr.forEach(x => d.tRates[x.id] = x);
     }
+    if (can.sup()) d.regs = (await safe(A.list('registrations'))) || [];
     if (can.admin()) { const [us, inv] = await Promise.all([A.list('users'), A.list('invites')]); d.users = us; d.invites = inv; }
   } else if (r === 'teacher') {
     const t = S.prof.teacherId || '';
@@ -103,8 +104,8 @@ async function reload() { await loadAll(); render(); }
 /* ---------------- shell ---------------- */
 function tabsFor(r) {
   return {
-    admin: [['dash', 'لوحة الإدارة'], ['sup', 'الإشراف'], ['acc', 'الحسابات'], ['students', 'الطلاب'], ['teachers', 'المعلمون'], ['people', 'الصلاحيات والنقل']],
-    supervisor: [['sup', 'الإشراف'], ['students', 'الطلاب']],
+    admin: [['dash', 'لوحة الإدارة'], ['regs', 'طلبات التسجيل'], ['sup', 'الإشراف'], ['acc', 'الحسابات'], ['students', 'الطلاب'], ['teachers', 'المعلمون'], ['people', 'الصلاحيات والنقل']],
+    supervisor: [['sup', 'الإشراف'], ['regs', 'طلبات التسجيل'], ['students', 'الطلاب']],
     accountant: [['acc', 'الحسابات']],
     teacher: [['mine', 'حلقاتي'], ['mymonth', 'شهري ومستحقاتي']],
     parent: [['kids', 'متابعة أبنائي']],
@@ -115,9 +116,10 @@ function render() {
   $('roleLbl').textContent = 'بوابة ' + (U.ROLES[role()] || '');
   $('meName').innerHTML = `<span>${esc(S.prof.name || S.user.email || '')}</span>`;
   const tabs = tabsFor(role());
-  $('tabs').innerHTML = tabs.map(([k, l]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === S.tab}">${l}</button>`).join('');
+  const newRegs = D.regs.filter(r => (r.status || 'new') === 'new').length;
+  $('tabs').innerHTML = tabs.map(([k, l]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === S.tab}">${l}${k === 'regs' && newRegs ? ` <span class="cnt">${newRegs}</span>` : ''}</button>`).join('');
   $('tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); });
-  const V = { dash: viewDash, sup: viewSup, acc: viewAcc, students: viewStudents, teachers: viewTeachers, people: viewPeople, mine: viewMine, mymonth: viewMyMonth, kids: viewKids }[S.tab];
+  const V = { dash: viewDash, sup: viewSup, acc: viewAcc, students: viewStudents, teachers: viewTeachers, people: viewPeople, regs: viewRegs, mine: viewMine, mymonth: viewMyMonth, kids: viewKids }[S.tab];
   $('main').innerHTML = V ? V() : '';
   afterRender();
 }
@@ -153,7 +155,7 @@ function dotsFor(s, m) {
   if (!items.length) return '<span class="note">لا حلقات في هذا الشهر</span>';
   return `<div class="dots">${items.map(d => { const r = rec(d, s.id); const k = r && ST[r.status] ? ST[r.status].c : d <= t ? 'none' : ''; return `<span class="dot ${k}" title="${fmtDate(d)}${r && ST[r.status] ? ' · ' + ST[r.status].l : ''}">${Number(d.slice(8))}</span>`; }).join('')}</div>`;
 }
-const legend = () => `<div class="chips">${chip('حضر', 'ok')}${chip('تأخر', 'late')}${chip('غاب', 'miss')}${chip('اعتذر', 'exc')}<span class="chip" style="background:none;border:1.5px dashed var(--miss);color:var(--miss)">فاتت ولم تُسجَّل</span></div>`;
+const legend = () => `<div class="chips">${chip('حضر', 'ok')}${chip('تأخر', 'late')}${chip('غاب', 'miss')}${chip('اعتذر', 'exc')}${chip('غاب المعلم', 'tab')}<span class="chip" style="background:none;border:1.5px dashed var(--miss);color:var(--miss)">فاتت ولم تُسجَّل</span></div>`;
 
 /* ---------------- session cards (supervisor + teacher) ---------------- */
 function sessionCard(o, opts = {}) {
@@ -163,7 +165,7 @@ function sessionCard(o, opts = {}) {
   return `<article class="card ${cur ? 's-' + cur : ''}">
     <div class="row"><div class="who"><b>${esc(s.name)}${o.slot.review ? ' ' + chip('مراجعة', 'late') : ''}</b><span>${opts.showTeacher ? esc(tName(s.teacherId)) + ' · ' : ''}${durOf(s)} دقيقة · الطالب في ${esc(U.zoneName(U.kTz(s)))}</span></div>
     <div class="time"><b>${fmtTime(U.localTime(o.ms, U.VIEW_TZ))}</b><span>بتوقيتك</span></div></div>
-    <div class="chips">${rp ? chip('التقرير مكتوب', 'ok') : chip('بلا تقرير', r && ['absent', 'excused'].includes(cur) ? '' : 'warn')}${opts.pkg ? pkgChip(s) : ''}</div>
+    <div class="chips">${rp ? chip('التقرير مكتوب', 'ok') : chip('بلا تقرير', r && ['absent', 'excused', 'tabsent'].includes(cur) ? '' : 'warn')}${opts.pkg ? pkgChip(s) : ''}</div>
     <div class="marks">${ST_KEYS.map(k => `<button class="mark ${ST[k].c}" type="button" data-act="mark" data-sid="${s.id}" data-st="${k}" aria-pressed="${cur === k}" ${canMark ? '' : 'disabled'}>${ST[k].l}</button>`).join('')}</div>
     <div class="actions"><button class="btn blue sm" type="button" data-act="report" data-sid="${s.id}">${rp ? 'تعديل التقرير' : 'كتابة تقرير الحصة'}</button>
     ${rp ? `<button class="btn ghost sm" type="button" data-act="copyrep" data-sid="${s.id}">نسخ رسالة الأهل</button>` : ''}
@@ -224,7 +226,7 @@ function viewDash() {
   const recd = sched.filter(o => rec(o.date, o.s.id));
   const mAtt = D.att.filter(a => a.month === m);
   const came = mAtt.filter(a => a.status === 'present' || a.status === 'late').length;
-  const counted = mAtt.filter(a => a.status !== 'excused').length;
+  const counted = mAtt.filter(a => a.status !== 'excused' && a.status !== 'tabsent').length;
   const newS = D.students.filter(s => (s.since || '').slice(0, 7) === m);
   const money = moneyOf(m);
   const due = D.students.map(s => ({ s, p: pkg(s) })).filter(x => x.p && x.p.due && !U.isPaused(x.s));
@@ -234,7 +236,7 @@ function viewDash() {
     const rc = sc.filter(o => rec(o.date, o.s.id)).length;
     const rpc = sc.filter(o => repOf(o.date, o.s.id)).length;
     const ta = mAtt.filter(a => a.teacherId === id);
-    const tc = ta.filter(a => a.status === 'present' || a.status === 'late').length, tn = ta.filter(a => a.status !== 'excused').length;
+    const tc = ta.filter(a => a.status === 'present' || a.status === 'late').length, tn = ta.filter(a => a.status !== 'excused' && a.status !== 'tabsent').length;
     return `<tr><td><b>${esc(t.name)}</b></td><td class="num">${st.filter(s => !U.isPaused(s)).length}</td><td class="num">${sc.length}</td><td class="num">${pct(rc, sc.length)}</td><td class="num">${pct(rpc, sc.length)}</td><td class="num">${pct(tc, tn)}</td></tr>`;
   }).join('');
   return `<div class="bar"><h1 class="grow">لوحة الإدارة</h1>${monthNav()}</div>
@@ -283,7 +285,7 @@ function alertsList(max = 50) {
 /* ================= SUPERVISION ================= */
 function viewSup() {
   const list = U.occurrencesOn(D.students, S.date, ACAD_TZ).filter(o => S.tf === 'all' || o.s.teacherId === S.tf);
-  const cnt = { present: 0, late: 0, absent: 0, excused: 0, none: 0, rep: 0 };
+  const cnt = { present: 0, late: 0, absent: 0, excused: 0, tabsent: 0, none: 0, rep: 0 };
   list.forEach(o => { const r = rec(S.date, o.s.id); r && ST[r.status] ? cnt[r.status]++ : cnt.none++; if (repOf(S.date, o.s.id)) cnt.rep++; });
   const m = U.thisMonth(), sched = scheduledIn(m);
   const quality = Object.entries(D.teachers).map(([id, t]) => {
@@ -295,7 +297,7 @@ function viewSup() {
   <div class="bar"><div class="pills">${[['all', 'كل المعلمين'], ...Object.entries(D.teachers).map(([id, t]) => [id, t.name])].map(([v, l]) => `<label><input type="radio" name="tf" value="${esc(v)}" ${S.tf === v ? 'checked' : ''} data-act="tf"><span>${esc(l)}</span></label>`).join('')}</div></div>
   <div class="cols3">
     <section class="grid" style="align-content:start">
-      <div class="chips">${chip(list.length + ' حصة')}${cnt.present ? chip('حضر ' + cnt.present, 'ok') : ''}${cnt.late ? chip('تأخر ' + cnt.late, 'late') : ''}${cnt.absent ? chip('غاب ' + cnt.absent, 'miss') : ''}${cnt.excused ? chip('اعتذر ' + cnt.excused, 'exc') : ''}${cnt.none ? chip('لم يُسجَّل ' + cnt.none, 'warn') : ''}${chip('تقارير ' + cnt.rep + ' من ' + list.length)}</div>
+      <div class="chips">${chip(list.length + ' حصة')}${cnt.present ? chip('حضر ' + cnt.present, 'ok') : ''}${cnt.late ? chip('تأخر ' + cnt.late, 'late') : ''}${cnt.absent ? chip('غاب ' + cnt.absent, 'miss') : ''}${cnt.excused ? chip('اعتذر ' + cnt.excused, 'exc') : ''}${cnt.tabsent ? chip('غاب المعلم ' + cnt.tabsent, 'tab') : ''}${cnt.none ? chip('لم يُسجَّل ' + cnt.none, 'warn') : ''}${chip('تقارير ' + cnt.rep + ' من ' + list.length)}</div>
       ${list.length ? `<div class="cards">${list.map(o => sessionCard(o, { showTeacher: true, pkg: true })).join('')}</div>` : '<div class="empty">لا حلقات في هذا اليوم.</div>'}
     </section>
     <aside class="grid" style="align-content:start">
@@ -485,6 +487,44 @@ async function deleteStudent(sid, btn) {
   try { await S.api.del('students', sid); await S.api.del('billing', sid).catch(() => { }); closeSheet(); toast('حُذف الطالب. سجلات حضوره تبقى للحسابات'); await reload(); } catch (x) { fail(x); }
 }
 
+/* ================= REGISTRATIONS (from the public site) ================= */
+const REG_ST = { new: ['جديد', 'miss'], contacted: ['تم التواصل', 'late'], trial: ['حُجزت الحصة التعريفية', 'tab'], enrolled: ['اشترك', 'ok'], lost: ['لم يكمل', 'exc'] };
+const REG_COURSE = { quran: 'القرآن الكريم', tajweed: 'التجويد', arabic: 'اللغة العربية' };
+const REG_TIME = { morning: 'صباحًا (8 - 12)', noon: 'ظهرًا (12 - 4)', evening: 'مساءً (4 - 8)', night: 'ليلًا (8 - 11)' };
+const SITE_URL = 'https://rattelquran.github.io/silah/';
+function viewRegs() {
+  const all = D.regs.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  const isOpen = r => ['new', 'contacted', 'trial'].includes(r.status || 'new');
+  const list = all.filter(r => S.rf === 'all' || (S.rf === 'open' ? isOpen(r) : (r.status || 'new') === S.rf));
+  const n = k => all.filter(r => (r.status || 'new') === k).length;
+  const pill = (k, l) => `<button class="btn ${S.rf === k ? 'blue' : 'ghost'} sm" type="button" data-act="rf" data-k="${k}">${l}</button>`;
+  const card = r => {
+    const st = REG_ST[r.status || 'new'] || REG_ST.new; const wl = U.waLink(r.whatsapp);
+    const hello = `السلام عليكم ${r.parentName || ''}، معك أكاديمية صلة 🌿 وصلنا طلبك لحصة تعريفية مجانية لـ${r.studentName || 'طفلك'} في ${REG_COURSE[r.course] || 'القرآن الكريم'}. متى يناسبك موعد الحصة؟`;
+    return `<article class="card">
+    <div class="row"><div class="who"><b>${esc(r.studentName || '—')}${r.studentAge ? ' · ' + esc(r.studentAge) + ' سنوات' : ''}</b><span>ولي الأمر: ${esc(r.parentName || '—')}${r.country ? ' · ' + esc(r.country) : ''}</span></div>${chip(st[0], st[1])}</div>
+    <div class="chips">${chip(REG_COURSE[r.course] || r.course || '—')}${chip('التواصل: ' + (REG_TIME[r.preferredTime] || r.preferredTime || '—'))}${r.at ? chip(fmtDate(new Date(r.at).toISOString().slice(0, 10))) : ''}</div>
+    ${r.notes ? `<span class="sub">${esc(r.notes)}</span>` : ''}
+    <div class="bar" style="margin:0">${wl ? `<a class="btn wa sm" href="${wl}?text=${encodeURIComponent(hello)}" target="_blank" rel="noopener">واتساب <span dir="ltr">${esc(r.whatsapp)}</span></a>` : `<span class="note" dir="ltr">${esc(r.whatsapp || '')}</span>`}
+      <label class="note" style="display:flex;gap:6px;align-items:center">الحالة <select data-regst="${r.id}" style="width:auto">${Object.entries(REG_ST).map(([k, [l]]) => `<option value="${k}" ${(r.status || 'new') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      <button class="btn ghost sm" type="button" data-act="regst" data-id="${r.id}">إضافة كطالب</button>
+      ${can.admin() ? `<button class="linkbtn" type="button" data-act="delreg" data-id="${r.id}">حذف</button>` : ''}</div></article>`;
+  };
+  return `<div class="bar"><h1 class="grow">طلبات التسجيل</h1><a class="btn ghost sm" href="${SITE_URL}" target="_blank" rel="noopener">فتح موقع صلة</a></div>
+  <div class="bar">${pill('open', 'قيد المتابعة (' + all.filter(isOpen).length + ')')}${Object.entries(REG_ST).map(([k, [l]]) => pill(k, l + ' (' + n(k) + ')')).join('')}${pill('all', 'الكل (' + all.length + ')')}</div>
+  ${list.length ? `<div class="cards">${list.map(card).join('')}</div>` : `<div class="empty">${all.length ? 'لا طلبات في هذا التصنيف.' : 'لا طلبات بعد. تصل هنا تلقائيًا من نموذج «احجزي حصة تعريفية» في موقع صلة.'}</div>`}
+  <p class="note" style="margin-top:12px">كل طلب يُرسل من نموذج الموقع يظهر هنا بحالة «جديد». تواصلي مع الأهل من زر واتساب، ثم غيّري الحالة. «إضافة كطالب» تفتح نموذج طالب جديد بالاسم ورقم ولي الأمر.</p>`;
+}
+async function setRegStatus(id, status) {
+  try { await S.api.set('registrations', id, { status, updatedAt: Date.now() }, true); const r = D.regs.find(x => x.id === id); if (r) r.status = status; toast('حُدّثت الحالة'); render(); } catch (x) { fail(x); }
+}
+function regToStudent(id) {
+  const r = D.regs.find(x => x.id === id); if (!r) return;
+  openStudent(null);
+  const put = (k, v) => { const el = $(k); if (el && v) el.value = v; };
+  put('f-name', r.studentName); put('f-pn', r.parentName); put('f-c', r.whatsapp);
+}
+
 /* ================= TEACHERS ================= */
 function viewTeachers() {
   const m = U.thisMonth();
@@ -641,6 +681,7 @@ function afterRender() {
   document.querySelectorAll('[data-rate]').forEach(i => i.onchange = async () => { const rates = { ...D.rates, [i.dataset.rate]: Number(i.value) || 0 }; try { await S.api.set('settings', 'rates', rates); D.rates = rates; toast('حُدّث سعر ' + U.curName(i.dataset.rate)); render(); } catch (x) { fail(x); } });
   const pa = $('payAbsent'); if (pa) pa.onchange = async () => { try { await S.api.set('settings', 'main', { payAbsent: pa.checked }, true); D.main.payAbsent = pa.checked; render(); } catch (x) { fail(x); } };
   const imp = $('impFile'); if (imp) imp.onchange = () => imp.files[0] && onImportFile(imp.files[0]);
+  document.querySelectorAll('[data-regst]').forEach(s => s.onchange = () => setRegStatus(s.dataset.regst, s.value));
 }
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return; const a = t.dataset.act;
@@ -658,6 +699,7 @@ document.addEventListener('click', e => {
     addt: () => openTeacher(null), editt: () => openTeacher(t.dataset.t),
     invite: () => openInvite(null), editinv: () => openInvite(t.dataset.e), delinv: () => deleteInvite($('i-email').value.trim().toLowerCase(), t),
     import: runImport,
+    rf: () => { S.rf = t.dataset.k; render(); }, regst: () => regToStudent(t.dataset.id), delreg: () => confirmDel(t, 'registrations', t.dataset.id),
   }[a];
   if (go) go();
 });

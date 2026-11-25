@@ -86,13 +86,16 @@ h2{font-size:1.15rem;font-weight:800}
 .time{text-align:end;white-space:nowrap}
 .time b{display:block;color:var(--navy);font-weight:900;font-variant-numeric:tabular-nums}
 .time span{font-size:.75rem;color:var(--muted)}
-.marks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.marks{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.mark{font-size:.86rem}
+@media (max-width:420px){.marks{grid-template-columns:repeat(3,1fr)}}
 .mark{border:1.5px solid var(--line);background:var(--paper);border-radius:12px;padding:9px 2px;font-weight:800;cursor:pointer}
 .mark[aria-pressed="true"]{color:#fff}
 .mark[aria-pressed="true"].ok{background:var(--ok);border-color:var(--ok)}
 .mark[aria-pressed="true"].late{background:var(--late);border-color:var(--late)}
 .mark[aria-pressed="true"].miss{background:var(--miss);border-color:var(--miss)}
 .mark[aria-pressed="true"].exc{background:var(--exc);border-color:var(--exc)}
+.mark[aria-pressed="true"].tab{background:var(--navy);border-color:var(--navy)}
 .mark:disabled{opacity:.55;cursor:default}
 .actions{display:flex;flex-wrap:wrap;gap:6px}
 
@@ -102,10 +105,13 @@ h2{font-size:1.15rem;font-weight:800}
 .chip.warn,.chip.late{background:color-mix(in srgb,var(--warn) 16%,var(--sheet));color:#8A5F00}
 .chip.miss{background:color-mix(in srgb,var(--miss) 12%,var(--sheet));color:var(--miss)}
 .chip.exc{background:color-mix(in srgb,var(--exc) 14%,var(--sheet));color:var(--exc)}
+.chip.tab{background:var(--sky);color:var(--navy)}
+.btn.wa{background:#1F8F5A;color:#fff}
+.tabs .cnt{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--crimson);color:#fff;font-size:.75rem;margin-inline-start:4px}
 
 .dots{display:flex;flex-wrap:wrap;gap:4px}
 .dot{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums;background:var(--paper);color:var(--muted)}
-.dot.ok{background:var(--ok);color:#fff}.dot.late{background:var(--late);color:#fff}.dot.miss{background:var(--miss);color:#fff}.dot.exc{background:var(--exc);color:#fff}
+.dot.ok{background:var(--ok);color:#fff}.dot.late{background:var(--late);color:#fff}.dot.miss{background:var(--miss);color:#fff}.dot.exc{background:var(--exc);color:#fff}.dot.tab{background:var(--navy);color:#fff}
 .dot.none{background:none;border:1.5px dashed var(--miss);color:var(--miss)}
 .meter{height:8px;border-radius:99px;background:var(--paper);overflow:hidden}
 .meter i{display:block;height:100%;background:var(--navy);border-radius:99px}

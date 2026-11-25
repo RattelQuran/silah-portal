@@ -156,6 +156,11 @@ function seed() {
   for (const [role, u] of Object.entries(DEMO_USERS)) users[u.id] = { role, name: u.name, email: u.email, teacherId: role === 'teacher' ? 'sara' : '', studentIds: role === 'parent' ? ['yusuf', 'maryam'] : [] };
   return {
     teachers, students, billing, attendance, reports, payments, expenses, users, payouts: {}, invites: {},
+    registrations: {
+      r1: { parentName: 'أم ريان', studentName: 'ريان', studentAge: 7, country: 'ألمانيا', whatsapp: '+49 151 000 0000', course: 'quran', preferredTime: 'evening', notes: 'يقرأ الفاتحة وقصار السور', status: 'new', source: 'site', at: Date.now() - 3600e3 },
+      r2: { parentName: 'أم جود', studentName: 'جود', studentAge: 5, country: 'تركيا', whatsapp: '+90 555 000 11 22', course: 'arabic', preferredTime: 'morning', notes: '', status: 'contacted', source: 'site', at: Date.now() - 86400e3 },
+      r3: { parentName: 'أبو عمر', studentName: 'عمر', studentAge: 10, country: 'كندا', whatsapp: '+1 416 000 0000', course: 'tajweed', preferredTime: 'night', notes: 'يحفظ جزء عم', status: 'trial', source: 'site', at: Date.now() - 3 * 86400e3 },
+    },
     teacherRates: { sara: { hourRate: 80 }, omar: { hourRate: 100 }, huda: { hourRate: 80 } },
     settings: { rates: { USD: 56.1, EUR: 65, SAR: 14.96, AED: 15.27, TRY: 1.64, GBP: 75 }, main: { academy: 'أكاديمية صلة', payAbsent: true } },
   };
