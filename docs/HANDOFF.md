@@ -1,36 +1,39 @@
 # HANDOFF — صلة
 
-**آخر تحديث:** 2026-11-25 · **الجلسة:** WEB-4D المرحلة 02
+**آخر تحديث:** 2026-11-25 · **الجلسة:** WEB-4D، جولة الصقل النهائية للاتجاه D
 
 ## نقطة التوقف
 - PR #1 **مدموج** في `main` (منشور على GitHub Pages).
-- فرع `web4d/phase-02` فيه كل عمل المرحلة 02، وطلب دمج مفتوح **لم يُدمج** (الدمج = نشر للبوابة، أما القواعد فلا تُنشر بالدمج).
+- PR #2 (`web4d/phase-02`): الأمن والنسخ والتوقيت. مفتوح، **لم يُدمج**، وينتظر موافقة المالك. الدمج ينشر الواجهة، ولا ينشر القواعد.
+- `web4d/signature-preview`: مبني على `web4d/phase-02`. فيه الاتجاه D «صلة المميزة»، **المعتمد فنيًا** من المالك (D-11)، وجولة الصقل النهائية. **لا يُدمج ولا يُنشر قبل اعتماد المالك.**
 - `firestore.rules` في المستودع **مقترحة وغير منشورة**.
 
-## الملفات المعدلة في المرحلة 02
-- `firestore.rules` و`firebase.json`: جديدان.
-- `backup.js`: جديد (منطق ملفات النسخ والاستيراد).
-- `app.js`: النسخ والاستعادة والمعاينة، ونمط التبويبات، و`ACAD_TZ` من util، وتاريخ طلب التسجيل بتوقيت القاهرة.
-- `util.js`: `ACAD_TZ` و`today()` بتاريخ القاهرة.
-- `data.js`: ربط المحاكي على localhost فقط.
-- `tests/`: أربع مجموعات اختبار (53).
-- `docs/`: SECURITY وBACKUP وCHANGELOG وdesign-directions، وتحديث QA وPROGRESS وDECISION_LOG وHANDOFF.
+## الملفات التي غيّرها الاتجاه D (مقارنة بـ `web4d/phase-02`)
+- `index.html`: كل CSS (رموز الألوان والخطوط والأحجام والمسافات) و22 أيقونة SVG، وبنية الرأس (شريط العلامة وشريط التبويبات).
+- `app.js`: طبقة العرض فقط، وهي `viewDash` و`viewAcc` و`viewMine` و`viewKids` و`renderLogin` و`alertsBlock` و`alertRows`، وأيقونات التبويبات، والإجراءان `go` و`rnf`، وأسماء a11y. **لم يتغير** منطق المال أو الحضور أو الصلاحيات أو تحميل البيانات.
+- `tests/e2e.test.mjs`: 9 اختبارات جديدة.
+- `docs/`: QA_REPORT وDESIGN_SYSTEM وCHANGELOG وSECURITY وDECISION_LOG وPROGRESS وهذا الملف، وRELEASE_READINESS جديد.
+- لم تتغير: `firestore.rules` و`data.js` و`util.js` و`backup.js` و`config.js`.
 
 ## الاختبارات
 ```sh
 cd tests && npm install
-npm test     # unit + rules + emulator + e2e = 53/53
+npm test     # unit 5 + rules 18 + emulator 8 + e2e 31 = 62/62
 ```
-يحتاج Java للمحاكي، ويستخدم Chromium من `CHROMIUM_PATH` أو `/opt/pw-browsers/chromium` إن وُجد.
+يحتاج Java للمحاكي، ويستخدم Chromium من `CHROMIUM_PATH` أو `/opt/pw-browsers/chromium`.
+اللقطات: `node /home/user/design/shoot-d.mjs <dir> <prefix>` للشاشات الخمس، و`node /home/user/design/shoot-tabs.mjs <width>` لكل تبويب. فحص axe: سكربت في مسودة الجلسة، ويحتاج `axe-core@4.10.2`.
 
 ## بانتظار المالك
-- اعتماد الاتجاه D «صلة المميزة» (D-11). الفرع `web4d/signature-preview` مبني على `web4d/phase-02`، ويعدّل `index.html` و`app.js` فقط: نظام ألوان وخطوط Baloo Bhaijaan 2 وIBM Plex Sans Arabic، و22 أيقونة SVG داخلية، ولوحة إدارة بشريط «اليوم» وتنبيهات بأزرار إجراء، ومسار مالي في الحسابات، وواجهة معلم للجوال بشريط تبويب سفلي، وواجهة ولي أمر، ودخول بقوس. اللقطات: `/home/user/design/shoot-d.mjs <dir> <prefix>`.
-1. اعتماد دمج PR المرحلة 02.
-2. نسخ نص قواعد Firestore المنشورة (SECURITY.md › المطلوب من المالك).
+1. اعتماد النسخة المصقولة من الاتجاه D، أو طلب تعديلات محددة.
+2. **D-16:** درجة أغمق لأرقام الأيام فوق «حضر» و«تأخر» فقط، أو قبول التباين الحالي.
+3. اعتماد دمج PR #2.
+4. **D-12:** نص قواعد Firestore المنشورة (SECURITY.md › المطلوب من المالك).
+5. **D-15:** تفعيل App Check.
 
 ## الخطوة التالية المأذونة
-- التصميم الحالي باقٍ بقرار المالك (D-11). لا تغيير بصري دون طلب جديد.
+- لا اتجاهات بصرية جديدة. التعديلات على D تكون بطلب محدد من المالك فقط.
 - بعد وصول القواعد المنشورة: المقارنة وكتابة الفروق، ثم انتظار موافقة النشر.
+- ترتيب النشر في RELEASE_READINESS.md.
 
 ## للاستئناف
-اقرأ `docs/MASTER_CONTEXT.md` ثم هذا الملف ثم `docs/DECISION_LOG.md` (القسم المعلق).
+اقرأ `docs/MASTER_CONTEXT.md` ثم هذا الملف ثم `docs/DECISION_LOG.md` ثم `docs/RELEASE_READINESS.md`.
