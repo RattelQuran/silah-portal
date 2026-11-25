@@ -4,7 +4,9 @@ import * as U from './util.js';
 import { BACKUP_COLS, COL_AR, opsFromFile, planImport } from './backup.js';
 const { esc, fmtN, fmtDate, fmtDay, fmtTime, ST, ST_KEYS, COUNTED, DAYS, DAY_ORDER } = U;
 
-const ACAD_TZ = U.ACAD_TZ;                // dates of attendance/reports are keyed in academy time
+const ACAD_TZ = U.ACAD_TZ;
+const ic = n => `<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-${n}"/></svg>`;
+const TAB_IC = { dash: 'dash', regs: 'inbox', sup: 'eye', monthly: 'doc', acc: 'coins', students: 'users', teachers: 'book', people: 'key', mine: 'cal', mymonth: 'wallet', kids: 'heart' };                // dates of attendance/reports are keyed in academy time
 const $ = id => document.getElementById(id);
 const S = { api: null, user: null, prof: null, tab: '', date: U.today(), month: U.thisMonth(), q: '', tf: 'all', rf: 'open', busy: new Set() };
 let D = emptyData();
@@ -37,8 +39,9 @@ function renderLogin() {
   const demo = S.api.mode === 'demo';
   const pending = !demo && S.api.pendingEmailLink && S.api.pendingEmailLink();
   $('main').innerHTML = `<div class="login">
-    <img src="logo.jpg" alt="">
+    <div class="arch"><img src="logo.jpg" alt=""></div>
     <h1>بوابة ${esc(CONFIG.academy || 'صلة')}</h1>
+    <p class="tag">الحلقات والتقارير والحسابات في مكان واحد</p>
     ${demo ? `<p class="note">اختر دورًا لتجربة البوابة ببيانات وهمية:</p>
       <div class="roles">${Object.entries(U.ROLES).map(([r, l]) => `<button class="btn ${r === 'admin' ? 'red' : 'ghost'}" type="button" data-demo="${r}">${l}</button>`).join('')}</div>
       <p class="note">لتشغيل البوابة الحقيقية أضف بيانات Firebase في ملف config.js.</p>`
@@ -46,7 +49,7 @@ function renderLogin() {
       <form id="finForm" class="grid"><input id="finEmail" type="email" dir="ltr" placeholder="name@example.com" required autocomplete="email"><button class="btn red" type="submit">إكمال الدخول</button></form>`
     : `<button class="btn blue" id="gBtn" type="button" style="justify-content:center">الدخول بحساب Google</button>
       <span class="or">أو برابط يصل إلى بريدك</span>
-      <form id="linkForm" class="grid"><input id="linkEmail" type="email" dir="ltr" placeholder="name@example.com" required autocomplete="email"><button class="btn red" type="submit">أرسل رابط الدخول</button></form>
+      <form id="linkForm" class="grid"><input id="linkEmail" type="email" dir="ltr" placeholder="name@example.com" required autocomplete="email"><button class="btn red" type="submit">${ic('mail')}أرسل رابط الدخول</button></form>
       <p class="note">يدخل فقط من دعته الإدارة ببريده.</p>`}
   </div>`;
   document.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => S.api.demoSignIn(b.dataset.demo));
@@ -58,7 +61,7 @@ function renderNoAccess(p) {
   $('top').hidden = true;
   const msg = p.error === 'no-invite' ? `البريد <b dir="ltr">${esc(p.email)}</b> غير مسجّل في الأكاديمية بعد. اطلب من الإدارة إضافته، ثم ادخل مرة أخرى.`
     : p.error === 'unverified' ? 'لم يُؤكَّد بريدك بعد. ادخل بحساب Google أو برابط البريد.' : 'تعذّر تحميل حسابك. حاول مرة أخرى بعد قليل.';
-  $('main').innerHTML = `<div class="login"><img src="logo.jpg" alt=""><h1>لا يمكن فتح البوابة</h1><p>${msg}</p><button class="btn ghost" type="button" id="o2">الدخول بحساب آخر</button></div>`;
+  $('main').innerHTML = `<div class="login"><div class="arch"><img src="logo.jpg" alt=""></div><h1>لا يمكن فتح البوابة</h1><p>${msg}</p><button class="btn ghost" type="button" id="o2">الدخول بحساب آخر</button></div>`;
   $('o2').onclick = () => S.api.signOut();
 }
 
@@ -126,11 +129,14 @@ function render() {
   $('meName').innerHTML = `<span>${esc(S.prof.name || S.user.email || '')}</span>`;
   const tabs = tabsFor(role());
   const newRegs = D.regs.filter(r => (r.status || 'new') === 'new').length;
-  $('tabs').innerHTML = tabs.map(([k, l]) => `<button role="tab" type="button" id="tab-${k}" data-tab="${k}" aria-controls="main" aria-selected="${k === S.tab}" tabindex="${k === S.tab ? 0 : -1}">${l}${k === 'regs' && newRegs ? ` <span class="cnt">${newRegs}</span>` : ''}</button>`).join('');
+  $('tabs').innerHTML = tabs.map(([k, l]) => `<button role="tab" type="button" id="tab-${k}" data-tab="${k}" aria-controls="main" aria-selected="${k === S.tab}" tabindex="${k === S.tab ? 0 : -1}">${l}${k === 'regs' && newRegs ? `<span class="cnt">${newRegs}</span>` : ''}${ic(TAB_IC[k] || 'dash')}</button>`).join('');
+  document.body.classList.toggle('fewtabs', tabs.length >= 2 && tabs.length <= 4);
   $('tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); });
   $('main').setAttribute('role', 'tabpanel'); $('main').setAttribute('aria-labelledby', 'tab-' + S.tab);
   const V = { dash: viewDash, sup: viewSup, acc: viewAcc, students: viewStudents, teachers: viewTeachers, people: viewPeople, regs: viewRegs, monthly: viewMonthly, mine: viewMine, mymonth: viewMyMonth, kids: viewKids }[S.tab];
   $('main').innerHTML = V ? V() : '';
+  const tb = $('top').querySelector('.tabsbar'); // sticky day bar sits right under the header (the tab bar moves to the bottom on phones)
+  document.documentElement.style.setProperty('--topH', $('top').querySelector('.brandbar').offsetHeight + (getComputedStyle(tb).position === 'fixed' ? 0 : tb.offsetHeight) + 'px');
   afterRender();
 }
 
@@ -172,16 +178,16 @@ function sessionCard(o, opts = {}) {
   const s = o.s, r = rec(S.date, s.id), cur = r && r.status, rp = repOf(S.date, s.id);
   const canMark = can.sup() || role() === 'teacher';
   const link = U.safeLink(s.link || (D.teachers[s.teacherId] || {}).room);
-  return `<article class="card ${cur ? 's-' + cur : ''}">
+  return `<article class="card ${cur ? 's-' + cur : ''}${opts.next ? ' is-next' : ''}">${opts.next ? `<span class="nexttag">${ic('clock')}الحصة التالية</span>` : ''}
     <div class="row"><div class="who"><b>${esc(s.name)}${o.slot.review ? ' ' + chip('مراجعة', 'late') : ''}${o.slot.makeup ? ' ' + chip('تعويضية', 'res') : ''}</b><span>${opts.showTeacher ? esc(tName(s.teacherId)) + ' · ' : ''}${durOf(s)} دقيقة · الطالب في ${esc(U.zoneName(U.kTz(s)))}</span></div>
     <div class="time"><b>${fmtTime(U.localTime(o.ms, U.VIEW_TZ))}</b><span>بتوقيتك</span></div></div>
     <div class="chips">${rp ? chip('التقرير مكتوب', 'ok') : chip('بلا تقرير', r && ['absent', 'excused', 'tabsent', 'resched'].includes(cur) ? '' : 'warn')}${opts.pkg ? pkgChip(s) : ''}${mkFor(s.id, S.date) ? chip('التعويض: ' + fmtDay(mkFor(s.id, S.date).date) + ' ' + fmtTime(mkFor(s.id, S.date).time), 'res') : ''}</div>
     <div class="marks">${ST_KEYS.map(k => `<button class="mark ${ST[k].c}" type="button" data-act="mark" data-sid="${s.id}" data-st="${k}" aria-pressed="${cur === k}" ${canMark ? '' : 'disabled'}>${ST[k].l}</button>`).join('')}</div>
-    <div class="actions"><button class="btn blue sm" type="button" data-act="report" data-sid="${s.id}">${rp ? 'تعديل التقرير' : 'كتابة تقرير الحصة'}</button>
+    <div class="actions"><button class="btn blue sm" type="button" data-act="report" data-sid="${s.id}">${ic('pen')}${rp ? 'تعديل التقرير' : 'كتابة تقرير الحصة'}</button>
     ${rp ? `<button class="btn ghost sm" type="button" data-act="copyrep" data-sid="${s.id}">نسخ رسالة الأهل</button>` : ''}
     ${canMark && ['resched', 'tabsent', 'excused'].includes(cur) && !o.slot.makeup ? `<button class="btn ghost sm" type="button" data-act="mkup" data-sid="${s.id}">${mkFor(s.id, S.date) ? 'تعديل موعد التعويض' : 'جدولة حصة تعويضية'}</button>` : ''}
-    ${link ? `<a class="btn ghost sm" href="${esc(link)}" target="_blank" rel="noopener">دخول الحلقة</a>` : ''}
-    ${U.waLink(s.contact) ? `<a class="btn ghost sm" href="${U.waLink(s.contact)}" target="_blank" rel="noopener">واتساب الأهل</a>` : ''}</div>
+    ${link ? `<a class="btn ghost sm" href="${esc(link)}" target="_blank" rel="noopener">${ic('video')}دخول الحلقة</a>` : ''}
+    ${U.waLink(s.contact) ? `<a class="btn ghost sm" href="${U.waLink(s.contact)}" target="_blank" rel="noopener">${ic('chat')}واتساب الأهل</a>` : ''}</div>
   </article>`;
 }
 async function mark(sid, status) {
@@ -232,15 +238,22 @@ async function copyText(t) { try { await navigator.clipboard.writeText(t); toast
 
 /* ================= ADMIN DASHBOARD ================= */
 function viewDash() {
-  const m = S.month, act = active();
+  const m = S.month, act = active(), t0 = U.today(), now = Date.now();
   const sched = scheduledIn(m, D.students);
   const recd = sched.filter(o => rec(o.date, o.s.id));
   const mAtt = D.att.filter(a => a.month === m);
   const came = mAtt.filter(a => a.status === 'present' || a.status === 'late').length;
   const counted = mAtt.filter(a => !['excused', 'tabsent', 'resched'].includes(a.status)).length;
   const newS = D.students.filter(s => (s.since || '').slice(0, 7) === m);
-  const money = moneyOf(m);
+  const money = can.acc() ? moneyOf(m) : null;
   const due = D.students.map(s => ({ s, p: pkg(s) })).filter(x => x.p && x.p.due && !U.isPaused(x.s));
+  const newRegs = D.regs.filter(r => (r.status || 'new') === 'new').length;
+  // today, always in academy time, whatever month is being browsed
+  const tl = sessionsOn(t0);
+  const tRec = tl.filter(o => rec(t0, o.s.id)).length, tRep = tl.filter(o => repOf(t0, o.s.id)).length;
+  const tLate = tl.filter(o => o.ms + durOf(o.s) * 6e4 <= now && !rec(t0, o.s.id)).length;
+  const nx = tl.find(o => o.ms > now);
+  const al = alerts();
   const rows = Object.entries(D.teachers).map(([id, t]) => {
     const st = D.students.filter(s => s.teacherId === id);
     const sc = sched.filter(o => o.s.teacherId === id);
@@ -248,26 +261,46 @@ function viewDash() {
     const rpc = sc.filter(o => repOf(o.date, o.s.id)).length;
     const ta = mAtt.filter(a => a.teacherId === id);
     const tc = ta.filter(a => a.status === 'present' || a.status === 'late').length, tn = ta.filter(a => !['excused', 'tabsent', 'resched'].includes(a.status)).length;
-    return `<tr><td><b>${esc(t.name)}</b></td><td class="num">${st.filter(s => !U.isPaused(s)).length}</td><td class="num">${sc.length}</td><td class="num">${pct(rc, sc.length)}</td><td class="num">${pct(rpc, sc.length)}</td><td class="num">${pct(tc, tn)}</td></tr>`;
+    return `<tr><td><b>${esc(t.name)}</b></td><td class="num">${st.filter(s => !U.isPaused(s)).length}</td><td class="num">${sc.length}</td><td class="num">${pctCell(rc, sc.length)}</td><td class="num">${pctCell(rpc, sc.length)}</td><td class="num">${pctCell(tc, tn, 'ok')}</td></tr>`;
   }).join('');
-  return `<div class="bar"><h1 class="grow">لوحة الإدارة</h1>${monthNav()}</div>
-  <div class="kpis">
-    ${kpi('الطلاب النشطون', act.length, `${D.students.length - act.length} في إجازة · ${newS.length} جديد هذا الشهر`)}
-    ${kpi('نسبة الحضور', pct(came, counted), `${came} حضور من ${counted} حصة مسجّلة (دون الأعذار)`)}
-    ${kpi('حصص لم تُسجَّل', sched.length - recd.length, `من ${sched.length} حصة مجدولة حتى اليوم`, sched.length - recd.length ? 'red' : 'ok')}
-    ${can.acc() ? kpi('التحصيل', fmtN(money.collected) + ' ج.م', `مصروفات ${fmtN(money.expenses)} · مستحقات معلمين ${fmtN(money.dues)}`) : ''}
-    ${can.acc() ? kpi('صافي الشهر', fmtN(money.net) + ' ج.م', 'التحصيل − مستحقات المعلمين − المصروفات', money.net < 0 ? 'red' : 'ok') : ''}
-    ${kpi('تجديدات مستحقة', due.length, 'باقات انتهت أو قاربت', due.length ? 'red' : '')}
-  </div>
+  const stat = (l, v, sub, cls = '', meter = null) => `<div class="stat"><small>${esc(l)}${sub ? `<em>${esc(sub)}</em>` : ''}${meter || ''}</small><b class="${cls}">${esc(v)}</b></div>`;
+  const bar = (a, b, cls = '') => b ? `<div class="meter ${cls}"><i style="width:${Math.min(100, Math.round(a / b * 100))}%"></i></div>` : '';
+  return `<div class="hello"><div class="grow"><span class="eyebrow">${fmtDay(t0)}</span><h1>لوحة الإدارة</h1></div>
+    <div class="quick"><button class="btn red" type="button" data-act="addst">${ic('plus')}طالب جديد</button>${can.acc() ? `<button class="btn ghost" type="button" data-act="pay">${ic('coins')}تسجيل دفعة</button>` : ''}<button class="btn ghost" type="button" data-act="go" data-tab="regs">${ic('inbox')}طلبات التسجيل${newRegs ? ` <span class="chip miss">${newRegs} جديد</span>` : ''}</button></div></div>
+  <section class="today" aria-label="حصص اليوم">
+    <div class="lbl"><b>اليوم</b><span>${nx ? 'التالية ' + fmtTime(U.localTime(nx.ms, U.VIEW_TZ)) + ' · ' + esc(nx.s.name) : tl.length ? 'انتهت حصص اليوم' : 'لا حصص اليوم'}</span></div>
+    <div class="st"><b>${tl.length}</b><span>حصة مجدولة</span></div>
+    <div class="st"><b>${tRec}</b><span>سُجّل حضورها</span></div>
+    <div class="st ${tLate ? 'hot' : ''}"><b>${tLate}</b><span>انتهت ولم تُسجَّل</span></div>
+    <div class="st"><b>${tRep}</b><span>كُتب تقريرها</span></div>
+    <button class="btn sm" type="button" data-act="go" data-tab="sup" data-today="1">${ic('eye')}متابعة اليوم</button>
+  </section>
   <div class="cols3">
-    <section class="panel"><div class="ph"><h2>أداء المعلمين · ${U.monthLabel(m)}</h2></div>
-      <div class="tscroll"><table><thead><tr><th>المعلم</th><th class="num">طلاب نشطون</th><th class="num">حصص مجدولة</th><th class="num">سُجّل حضورها</th><th class="num">كُتب تقريرها</th><th class="num">نسبة حضور الطلاب</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="note">أضف المعلمين من تبويب «المعلمون».</td></tr>'}</tbody></table></div>
-      <p class="note">«سُجّل حضورها» و«كُتب تقريرها» تقيس التزام المعلم بالتسجيل، لا حضور الطالب.</p>
-    </section>
-    <section class="panel"><div class="ph"><h2>يحتاج انتباهك</h2></div>${alertsList(8)}</section>
-  </div>
-  ${newS.length ? `<section class="panel" style="margin-top:14px"><h2>طلاب جدد في ${U.monthLabel(m)}</h2><div class="chips">${newS.map(s => chip(s.name + ' · ' + tName(s.teacherId))).join('')}</div></section>` : ''}`;
+    <div class="grid" style="align-content:start">
+      <section class="panel"><div class="ph"><h2>${ic('alert')}يحتاج انتباهك</h2>${al.length ? chip(al.length + ' بند', al.some(x => x.cls === 'red') ? 'miss' : 'warn') : ''}</div>${alertsList(8)}</section>
+      <section class="panel"><div class="ph"><h2>${ic('book')}أداء المعلمين</h2>${monthNav()}</div>
+        <div class="tscroll"><table><thead><tr><th>المعلم</th><th class="num">طلاب نشطون</th><th class="num">حصص مجدولة</th><th class="num">سُجّل حضورها</th><th class="num">كُتب تقريرها</th><th class="num">حضور الطلاب</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="note">أضف المعلمين من تبويب «المعلمون».</td></tr>'}</tbody></table></div>
+        <p class="note">«سُجّل حضورها» و«كُتب تقريرها» تقيس التزام المعلم بالتسجيل، لا حضور الطالب.</p>
+      </section>
+    </div>
+    <aside class="side">
+      <section class="panel" style="gap:0"><h2 style="margin-bottom:4px">${ic('users')}الأكاديمية · ${U.monthLabel(m)}</h2>
+        ${stat('الطلاب النشطون', act.length, `${D.students.length - act.length} في إجازة · ${newS.length} جديد هذا الشهر`)}
+        ${stat('نسبة الحضور', pct(came, counted), `${came} من ${counted} حصة مسجّلة، دون الأعذار`, '', bar(came, counted, 'ok'))}
+        ${stat('حصص لم تُسجَّل', sched.length - recd.length, `من ${sched.length} حصة مجدولة حتى اليوم`, sched.length - recd.length ? 'red' : 'ok')}
+        ${stat('تجديدات مستحقة', due.length, 'باقات انتهت أو قاربت', due.length ? 'red' : '')}
+      </section>
+      ${money ? `<section class="panel" style="gap:0"><div class="ph" style="margin-bottom:4px"><h2>${ic('coins')}المال · ${U.monthLabel(m)}</h2><button class="linkbtn" type="button" data-act="go" data-tab="acc">الحسابات</button></div>
+        ${stat('التحصيل', fmtN(money.collected) + ' ج.م', money.expected ? `${pct(money.collected, money.expected)} من المتوقع ${fmtN(money.expected)}` : '', '', bar(money.collected, money.expected, 'gold'))}
+        ${stat('مستحقات المعلمين', fmtN(money.dues) + ' ج.م', `صُرف منها ${fmtN(money.paidOut)}`)}
+        ${stat('المصروفات', fmtN(money.expenses) + ' ج.م', '')}
+        ${stat('صافي الشهر', fmtN(money.net) + ' ج.م', 'التحصيل − المستحقات − المصروفات', money.net < 0 ? 'red' : 'ok')}
+      </section>` : ''}
+      ${newS.length ? `<section class="panel"><h2>${ic('heart')}طلاب جدد في ${U.monthLabel(m)}</h2><div class="chips">${newS.map(s => chip(s.name + ' · ' + tName(s.teacherId))).join('')}</div></section>` : ''}
+    </aside>
+  </div>`;
 }
+const pctCell = (a, b, cls = '') => b ? `<span class="pc"><span>${pct(a, b)}</span><span class="meter ${cls}"><i style="width:${Math.round(a / b * 100)}%"></i></span></span>` : '—';
 const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
 const kpi = (l, v, sub, cls = '') => `<div class="kpi ${cls}"><small>${esc(l)}</small><b>${esc(v)}</b><span>${esc(sub)}</span></div>`;
 
@@ -277,22 +310,25 @@ function alerts() {
   const from = U.addDays(t, -7);
   const missing = [];
   for (let d = from; d < t; d = U.addDays(d, 1)) sessionsOn(d).forEach(o => { if (!rec(d, o.s.id)) missing.push({ d, s: o.s }); });
-  if (missing.length) out.push({ cls: 'red', h: `${missing.length} حصة في آخر ٧ أيام لم يُسجَّل حضورها`, b: missing.slice(0, 6).map(x => x.s.name + ' (' + fmtDate(x.d) + ' · ' + tName(x.s.teacherId) + ')').join('، ') + (missing.length > 6 ? '…' : '') });
+  if (missing.length) out.push({ cls: 'red', h: `${missing.length} حصة في آخر ٧ أيام لم يُسجَّل حضورها`, b: missing.slice(0, 6).map(x => x.s.name + ' (' + fmtDate(x.d) + ' · ' + tName(x.s.teacherId) + ')').join('، ') + (missing.length > 6 ? '…' : ''), go: ['sup', 'الإشراف'] });
   for (const s of active()) {
     const c = monthCounts(s.id, m);
-    if (c.absent >= 2) out.push({ cls: 'red', h: `${s.name}: غاب ${c.absent} مرات هذا الشهر`, b: 'تواصل مع الأهل لمعرفة السبب.' });
+    if (c.absent >= 2) out.push({ cls: 'red', h: `${s.name}: غاب ${c.absent} مرات هذا الشهر`, b: 'تواصل مع الأهل لمعرفة السبب.', sid: s.id });
     const lr = lastReport(s.id); const age = lr ? Math.round((U.parse(t) - U.parse(lr.date)) / 864e5) : null;
-    if ((s.since || '') <= U.addDays(t, -14) && (age === null || age > 14)) out.push({ cls: 'amber', h: `${s.name}: ${age === null ? 'لا يوجد أي تقرير حصة' : 'آخر تقرير قبل ' + age + ' يومًا'}`, b: 'المعلم: ' + tName(s.teacherId) });
-    const p = pkg(s); if (p && p.due) out.push({ cls: p.cls === 'miss' ? 'red' : 'amber', h: `${s.name}: ${p.txt}`, b: 'تجديد الباقة' });
+    if ((s.since || '') <= U.addDays(t, -14) && (age === null || age > 14)) out.push({ cls: 'amber', h: `${s.name}: ${age === null ? 'لا يوجد أي تقرير حصة' : 'آخر تقرير قبل ' + age + ' يومًا'}`, b: 'المعلم: ' + tName(s.teacherId), go: ['sup', 'الإشراف'] });
+    const p = pkg(s); if (p && p.due) out.push({ cls: p.cls === 'miss' ? 'red' : 'amber', h: `${s.name}: ${p.txt}`, b: 'تجديد الباقة', go: can.acc() ? ['acc', 'الحسابات'] : null });
   }
-  dueFollowUps().forEach(c => { const s = sById(c.studentId); if (s) out.push({ cls: 'amber', h: `متابعة مع أهل ${s.name} (${fmtDate(c.next)})`, b: (CT_WHY[c.reason] || '') + (c.notes ? ' · ' + c.notes : '') }); });
-  if (can.sup()) { const w = D.monthly.filter(r => r.status === 'submitted').length; if (w) out.push({ cls: 'amber', h: `${w} تقرير شهري بانتظار اعتمادك`, b: 'من تبويب «التقارير الشهرية».' }); }
-  return out;
+  dueFollowUps().forEach(c => { const s = sById(c.studentId); if (s) out.push({ cls: 'amber', h: `متابعة مع أهل ${s.name} (${fmtDate(c.next)})`, b: (CT_WHY[c.reason] || '') + (c.notes ? ' · ' + c.notes : ''), sid: s.id }); });
+  if (can.sup()) { const w = D.monthly.filter(r => r.status === 'submitted').length; if (w) out.push({ cls: 'amber', h: `${w} تقرير شهري بانتظار اعتمادك`, b: 'من تبويب «التقارير الشهرية».', go: ['monthly', 'المراجعة'] }); }
+  return out.sort((x, y) => (x.cls === 'red' ? 0 : 1) - (y.cls === 'red' ? 0 : 1)); // urgent first, order kept within each group
 }
 function alertsList(max = 50) {
   const a = alerts();
   if (!a.length) return '<div class="alert"><span>لا شيء عاجل. كل الحصص مسجّلة والتقارير منتظمة.</span></div>';
-  return a.slice(0, max).map(x => `<div class="alert ${x.cls}"><span><b>${esc(x.h)}</b><br><span class="note">${esc(x.b)}</span></span></div>`).join('') + (a.length > max ? `<p class="note">و${a.length - max} تنبيهات أخرى في تبويب الإشراف.</p>` : '');
+  const here = S.tab;
+  const act = x => x.sid && can.sup() ? `<button class="btn ghost sm go" type="button" data-act="ctlog" data-sid="${x.sid}">${ic('chat')}التواصل</button>`
+    : x.go && x.go[0] !== here ? `<button class="btn ghost sm go" type="button" data-act="go" data-tab="${x.go[0]}">${esc(x.go[1])}</button>` : '';
+  return a.slice(0, max).map(x => `<div class="alert ${x.cls}"><span><b>${esc(x.h)}</b><br><span class="note">${esc(x.b)}</span></span>${act(x)}</div>`).join('') + (a.length > max ? `<p class="note">و${a.length - max} تنبيهات أخرى في تبويب الإشراف.</p>` : '');
 }
 
 /* ================= SUPERVISION ================= */
@@ -357,13 +393,14 @@ function viewAcc() {
   const exps = D.expenses.filter(e => e.month === m).sort((a, b) => b.date.localeCompare(a.date));
   const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); return `<tr><td><b>${esc(t.name)}</b><br>${payStatus(x)}</td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.full ? 'مبلغ الطالب كاملًا' : x.rate ? fmtN(x.rate) : '<span class="chip warn">حدّد الأجر</span>'}</td><td class="num">${fmtN(x.base)}</td><td class="num">${x.bonus ? '+' + fmtN(x.bonus) : ''}${x.bonus && x.deduction ? '<br>' : ''}${x.deduction ? '<span style="color:var(--crimson)">−' + fmtN(x.deduction) + '</span>' : ''}${x.bonus || x.deduction ? '' : '—'}</td><td class="num"><b>${fmtN(x.due)}</b></td><td class="num">${fmtN(x.paid)}</td><td class="num"><b>${fmtN(x.due - x.paid)}</b></td><td><div class="chips" style="flex-wrap:nowrap"><button class="btn ghost sm" type="button" data-act="adj" data-t="${id}">مكافأة/خصم</button>${x.approved && Math.round(x.due) === Number(x.approved.total) ? `<button class="btn ghost sm" type="button" data-act="payundo" data-t="${id}">إلغاء الاعتماد</button>` : `<button class="btn blue sm" type="button" data-act="payok" data-t="${id}">${x.approved ? 'إعادة الاعتماد' : 'اعتماد'}</button>`}<button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></div></td></tr>`; }).join('');
   const rnCount = k => due.filter(({ s }) => (renewalOf(D.billing[s.id]).status || 'none') === k).length;
-  return `<div class="bar"><h1 class="grow">الحسابات</h1>${monthNav()}</div>
-  <div class="kpis">
-    ${kpi('التحصيل الفعلي', fmtN(M.collected) + ' ج.م', `${pays.length} دفعة في ${U.monthLabel(m)}`)}
-    ${kpi('الدخل الشهري المتوقع', fmtN(M.expected) + ' ج.م', 'مجموع رسوم الطلاب النشطين · رسوم الإخوة مرة واحدة')}
-    ${kpi('مستحقات المعلمين', fmtN(M.dues) + ' ج.م', `صُرف منها ${fmtN(M.paidOut)}`)}
-    ${kpi('المصروفات', fmtN(M.expenses) + ' ج.م', `${exps.length} بند`)}
-    ${kpi('صافي الربح', fmtN(M.net) + ' ج.م', 'التحصيل − المستحقات − المصروفات', M.net < 0 ? 'red' : 'ok')}
+  const op = x => `<span class="op" aria-hidden="true">${x}</span>`;
+  return `<div class="bar"><div class="grow"><span class="eyebrow">مسار المال في ${U.monthLabel(m)}</span><h1>الحسابات</h1></div>${monthNav()}<button class="btn red" type="button" data-act="pay">${ic('plus')}دفعة</button><button class="btn ghost" type="button" data-act="expense">${ic('plus')}مصروف</button></div>
+  <div class="flow" role="list">
+    <div class="step" role="listitem"><small>الدخل الشهري المتوقع</small><b>${fmtN(M.expected)} ج.م</b><span>رسوم الطلاب النشطين · رسوم الإخوة مرة واحدة</span></div>${op('←')}
+    <div class="step" role="listitem"><small>التحصيل الفعلي</small><b>${fmtN(M.collected)} ج.م</b><span>${pays.length} دفعة${M.expected ? ' · ' + pct(M.collected, M.expected) + ' من المتوقع' : ''}</span>${M.expected ? `<div class="meter gold" style="margin-top:6px"><i style="width:${Math.min(100, Math.round(M.collected / M.expected * 100))}%"></i></div>` : ''}</div>${op('−')}
+    <div class="step" role="listitem"><small>مستحقات المعلمين</small><b>${fmtN(M.dues)} ج.م</b><span>صُرف منها ${fmtN(M.paidOut)}</span>${M.dues ? `<div class="meter" style="margin-top:6px"><i style="width:${Math.min(100, Math.round(M.paidOut / M.dues * 100))}%"></i></div>` : ''}</div>${op('−')}
+    <div class="step" role="listitem"><small>المصروفات</small><b>${fmtN(M.expenses)} ج.م</b><span>${exps.length} بند</span></div>${op('=')}
+    <div class="step net ${M.net < 0 ? 'neg' : ''}" role="listitem"><small>صافي الربح</small><b>${fmtN(M.net)} ج.م</b><span>التحصيل − المستحقات − المصروفات</span></div>
   </div>
   <div class="cols2">
     <section class="panel"><div class="ph"><h2>التجديدات المستحقة (${due.length})</h2></div>
@@ -673,11 +710,16 @@ async function runImport() {
 
 /* ================= TEACHER ================= */
 function viewMine() {
-  const list = sessionsOn(S.date);
+  const list = sessionsOn(S.date), now = Date.now(), isT = S.date === U.today();
   const t = D.teachers[S.prof.teacherId] || {};
-  return `<div class="bar"><h1 class="grow">حلقاتي${t.name ? ' · ' + esc(t.name) : ''}</h1>${dayNav()}</div>
-  ${U.safeLink(t.room) ? `<div class="bar"><a class="btn blue" href="${esc(U.safeLink(t.room))}" target="_blank" rel="noopener">دخول غرفتي الثابتة</a></div>` : ''}
-  ${list.length ? `<div class="cards">${list.map(o => sessionCard(o)).join('')}</div>` : '<div class="empty">لا حلقات لك في هذا اليوم.</div>'}
+  const done = list.filter(o => rec(S.date, o.s.id)).length, reps = list.filter(o => repOf(S.date, o.s.id)).length;
+  // the session to act on next: the first one today that is still running or upcoming and not yet marked
+  const nextI = isT ? list.findIndex(o => o.ms + durOf(o.s) * 6e4 > now && !rec(S.date, o.s.id)) : -1;
+  return `<div class="bar" style="margin-bottom:8px"><div class="grow">${t.name ? `<span class="eyebrow">${esc(t.name)}</span>` : ''}<h1>حلقاتي</h1></div>
+    ${U.safeLink(t.room) ? `<a class="btn blue" href="${esc(U.safeLink(t.room))}" target="_blank" rel="noopener">${ic('video')}دخول غرفتي الثابتة</a>` : ''}</div>
+  <div class="daybar"><div class="bar" style="margin:0;justify-content:center">${dayNav()}</div></div>
+  ${list.length ? `<div class="prog"><div class="grow"><span>سُجّل حضور <b>${done}</b> من <b>${list.length}</b> · كُتب <b>${reps}</b> تقرير</span><div class="meter ok"><i style="width:${Math.round(done / list.length * 100)}%"></i></div></div>${done === list.length ? chip('اكتمل التسجيل', 'ok') : ''}</div>
+  <div class="cards">${list.map((o, i) => sessionCard(o, { next: i === nextI })).join('')}</div>` : '<div class="empty">لا حلقات لك في هذا اليوم.</div>'}
   <p class="note" style="margin-top:12px">اضغط حالة الحضور مرة لتسجيلها ومرة ثانية لإلغائها. بعد كل حصة اكتب التقرير، ثم انسخ رسالة الأهل وأرسلها على واتساب.</p>`;
 }
 function viewMyMonth() {
@@ -695,28 +737,32 @@ function viewMyMonth() {
 function viewKids() {
   if (!D.students.length) return '<div class="empty">لم يُربط بحسابك أي طالب بعد. تواصل مع إدارة الأكاديمية.</div>';
   const m = S.month;
-  return `<div class="bar"><h1 class="grow">متابعة أبنائي</h1>${monthNav()}</div>
+  return `<div class="hello"><div class="grow"><span class="eyebrow">أهلًا بكم</span><h1>متابعة أبنائي</h1></div>${monthNav()}</div>
   <div class="grid">${D.students.map(s => {
-    const nx = U.nextOccurrence(s, U.kTz(s)); const p = pkg(s); const c = monthCounts(s.id, m);
+    const z = U.kTz(s), nx = U.nextOccurrence(s, z); const p = pkg(s); const c = monthCounts(s.id, m);
     const reps = D.reports.filter(r => r.studentId === s.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
     const pays = D.payments.filter(x => x.studentId === s.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
-    return `<section class="panel">
-      <div class="ph"><h2>${esc(s.name)}</h2><span class="sub">المعلم: ${esc(tName(s.teacherId))}</span></div>
-      <div class="kpis" style="margin:0">
-        ${kpi('الحصة القادمة', nx ? fmtTime(U.localTime(nx.ms, U.kTz(s))) : '—', nx ? DAYS[U.parse(U.localDate(nx.ms, U.kTz(s))).getDay()] + ' ' + fmtDate(U.localDate(nx.ms, U.kTz(s))) + ' · بتوقيت ' + U.zoneName(U.kTz(s)) : U.isPaused(s) ? 'في إجازة' : 'لا مواعيد')}
-        ${kpi('الحضور في ' + U.monthLabel(m), (c.present + c.late) + ' حصة', (c.absent ? 'غاب ' + c.absent + ' · ' : '') + (c.excused ? 'اعتذر ' + c.excused : ''))}
-        ${p ? kpi('الباقة', p.monthly ? (p.q ? p.done + ' من ' + p.q : '—') : p.done + ' من ' + p.q, p.txt, p.cls === 'miss' ? 'red' : '') : ''}
+    const link = U.safeLink(s.link || (D.teachers[s.teacherId] || {}).room);
+    const up = D.makeups.filter(k => k.studentId === s.id && k.date >= U.today()).sort((a, b) => a.date.localeCompare(b.date));
+    return `<section class="panel kid">
+      <div class="kidhead"><span class="av" aria-hidden="true">${esc((s.name || '؟').trim().charAt(0))}</span><div style="flex:1;min-width:0"><h2>${esc(s.name)}</h2><span class="sub">المعلم: ${esc(tName(s.teacherId))}</span></div>${p ? chip(p.txt, p.cls) : ''}</div>
+      <div class="cols2" style="gap:12px">
+        <div class="nextup"><small>الحصة القادمة</small>${nx ? `<b>${fmtTime(U.localTime(nx.ms, z))}</b><span>${DAYS[U.parse(U.localDate(nx.ms, z)).getDay()]} ${fmtDate(U.localDate(nx.ms, z))} · بتوقيت ${esc(U.zoneName(z))}</span>` : `<b style="font-size:1.3rem">${U.isPaused(s) ? 'في إجازة' : 'لا مواعيد'}</b>`}
+          ${link ? `<a class="btn red" href="${esc(link)}" target="_blank" rel="noopener">${ic('video')}دخول الحلقة</a>` : ''}</div>
+        <div class="grid" style="gap:8px;align-content:start">
+          <h3>الحضور في ${U.monthLabel(m)}</h3>
+          <div class="trio"><div class="ok"><b>${c.present + c.late}</b><span>حضر</span></div><div class="miss"><b>${c.absent}</b><span>غاب</span></div><div class="exc"><b>${c.excused}</b><span>اعتذر</span></div></div>
+          ${p && p.q ? `<div><div class="row"><span class="sub">الباقة</span><b style="font-variant-numeric:tabular-nums">${p.done} من ${p.q}</b></div><div class="meter gold" style="margin-top:4px"><i style="width:${Math.min(100, Math.round(p.done / p.q * 100))}%"></i></div></div>` : ''}
+        </div>
       </div>
-      ${legend()}${dotsFor(s, m)}
-      ${(() => { const up = D.makeups.filter(k => k.studentId === s.id && k.date >= U.today()).sort((a, b) => a.date.localeCompare(b.date)); return up.length ? `<div class="chips">${up.map(k => { const ms = U.wallToMs(k.date, k.time || '00:00', ACAD_TZ); return chip('حصة تعويضية: ' + fmtDay(U.localDate(ms, U.kTz(s))) + ' ' + fmtTime(U.localTime(ms, U.kTz(s))) + ' بتوقيت ' + U.zoneName(U.kTz(s)), 'res'); }).join('')}</div>` : ''; })()}
+      ${up.length ? `<div class="chips">${up.map(k => { const ms = U.wallToMs(k.date, k.time || '00:00', ACAD_TZ); return chip('حصة تعويضية: ' + fmtDay(U.localDate(ms, z)) + ' ' + fmtTime(U.localTime(ms, z)) + ' بتوقيت ' + U.zoneName(z), 'res'); }).join('')}</div>` : ''}
+      ${dotsFor(s, m)}${legend()}
       ${monthlyForParent(s)}
-      <h3 style="font-size:1rem">آخر تقارير الحصص</h3>
+      <h3>آخر تقارير الحصص</h3>
       ${reps.length ? reps.map(r => `<div class="rep"><b>${fmtDay(r.date)}${r.rating ? ' · ' + esc(r.rating) : ''}</b>${r.newMem ? `<span>الحفظ الجديد: ${esc(r.newMem)}</span>` : ''}${r.review ? `<span>المراجعة: ${esc(r.review)}</span>` : ''}${r.homework ? `<span>الواجب: <b>${esc(r.homework)}</b></span>` : ''}${r.notes ? `<span>ملاحظة المعلم: ${esc(r.notes)}</span>` : ''}</div>`).join('') : '<p class="note">لا تقارير بعد.</p>'}
-      ${U.safeLink(s.link || (D.teachers[s.teacherId] || {}).room) ? `<a class="btn red" style="align-self:flex-start" href="${esc(U.safeLink(s.link || (D.teachers[s.teacherId] || {}).room))}" target="_blank" rel="noopener">دخول الحلقة</a>` : ''}
-      ${pays.length ? `<h3 style="font-size:1rem">الدفعات</h3><div class="chips">${pays.map(x => chip(fmtDate(x.date) + ' · ' + fmtN(x.amount) + ' ' + U.curName(x.currency), 'ok')).join('')}</div>` : ''}
+      ${pays.length ? `<h3>الدفعات</h3><div class="chips">${pays.map(x => chip(fmtDate(x.date) + ' · ' + fmtN(x.amount) + ' ' + U.curName(x.currency), 'ok')).join('')}</div>` : ''}
     </section>`; }).join('')}</div>`;
 }
-
 /* ================= 1. MONTHLY REPORTS (teacher writes → supervisor approves → parent reads) ================= */
 const MR_ST = { draft: ['مسودة', 'exc'], submitted: ['بانتظار اعتماد المشرفة', 'late'], published: ['منشور لولي الأمر', 'ok'] };
 const mrOf = (sid, m) => D.monthly.find(r => r.studentId === sid && r.month === m);
@@ -912,6 +958,7 @@ document.addEventListener('click', e => {
   if (a === 'tf') { S.tf = t.value; render(); return; }
   const go = {
     close: closeSheet,
+    go: () => { S.tab = t.dataset.tab; if (t.dataset.today) S.date = U.today(); render(); window.scrollTo(0, 0); },
     dprev: () => { S.date = U.addDays(S.date, -1); render(); }, dnext: () => { S.date = U.addDays(S.date, 1); render(); }, dtoday: () => { S.date = U.today(); render(); },
     mprev: () => { S.month = U.addMonths(S.month, -1); render(); }, mnext: () => { S.month = U.addMonths(S.month, 1); render(); },
     mark: () => mark(t.dataset.sid, t.dataset.st), report: () => openReport(t.dataset.sid),
