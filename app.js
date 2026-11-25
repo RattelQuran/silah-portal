@@ -862,8 +862,17 @@ function payStatus(x) {
 }
 
 /* ---------------- sheet & events ---------------- */
-function openSheet(html) { const o = $('overlay'); o.innerHTML = `<div class="sheet-wrap" data-act="backdrop"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`; o.hidden = false; const f = o.querySelector('input,select,textarea'); if (f) f.focus(); }
-function closeSheet() { $('overlay').hidden = true; $('overlay').innerHTML = ''; armedDel = null; }
+let sheetReturn = null; // element that opened the sheet, focused again on close
+function openSheet(html) {
+  const o = $('overlay'); if (o.hidden) sheetReturn = document.activeElement;
+  o.innerHTML = `<div class="sheet-wrap" data-act="backdrop"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`; o.hidden = false;
+  const h = o.querySelector('.sheet h2'); if (h) { h.id = 'sheetTitle'; o.querySelector('.sheet').setAttribute('aria-labelledby', 'sheetTitle'); }
+  const f = o.querySelector('input,select,textarea'); if (f) f.focus();
+}
+function closeSheet() {
+  $('overlay').hidden = true; $('overlay').innerHTML = ''; armedDel = null;
+  const r = sheetReturn; sheetReturn = null; if (r && r.isConnected && r.focus) r.focus();
+}
 function afterRender() {
   const sq = $('sq'); if (sq) { sq.oninput = () => { S.q = sq.value; const pos = sq.selectionStart; render(); const n = $('sq'); n.focus(); n.setSelectionRange(pos, pos); }; }
   const stf = $('stf'); if (stf) stf.onchange = () => { S.tf = stf.value; render(); };
