@@ -15,7 +15,7 @@ function emptyData() { return { teachers: {}, students: [], billing: {}, att: []
 /* ---------------- boot & auth ---------------- */
 let toastT;
 function toast(m) { const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
-function fail(e) { console.error(e); const c = e && e.code || ''; toast(c.includes('permission') ? 'لا تملك صلاحية لهذا الإجراء' : 'تعذّر الحفظ. تحقق من الاتصال وحاول مرة أخرى'); }
+function fail(e) { console.error(e); const c = e && e.code || ''; toast(/app-check|appCheck|unauthenticated/i.test(c + ' ' + (e && e.message || '')) ? 'تعذّر التحقق من المتصفح. أعد تحميل الصفحة، وإن تكرر فجرّب متصفحًا آخر أو أوقف مانع الإعلانات' : c.includes('permission') ? 'لا تملك صلاحية لهذا الإجراء' : 'تعذّر الحفظ. تحقق من الاتصال وحاول مرة أخرى'); }
 
 (async function boot() {
   try { S.api = await initData(); }

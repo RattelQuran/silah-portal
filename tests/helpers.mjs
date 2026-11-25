@@ -28,15 +28,30 @@ export async function browser() {
 }
 
 /** config.js used by the tests. mode 'demo' = sample data; 'emulator' = Firebase emulators, project demo-silah. */
-export const testConfig = mode => `export const CONFIG = { academy: 'أكاديمية صلة', ownerEmail: 'owner@test.local', firebase: ${mode === 'demo' ? "{ apiKey: '' }" : "{ apiKey: 'fake-api-key', authDomain: 'demo-silah.firebaseapp.com', projectId: 'demo-silah', appId: '1:1:web:1' }"} };`;
+export const testConfig = (mode, appCheck = process.env.SILAH_APPCHECK ? "{ siteKey: 'test-site-key', provider: 'enterprise' }" : '') => `export const CONFIG = { academy: 'أكاديمية صلة', ownerEmail: 'owner@test.local', ${appCheck ? `appCheck: ${appCheck}, ` : ''}firebase: ${mode === 'demo' ? "{ apiKey: '' }" : "{ apiKey: 'fake-api-key', authDomain: 'demo-silah.firebaseapp.com', projectId: 'demo-silah', appId: '1:1:web:1' }"} };`;
 
-export async function route(ctx, mode = 'demo') {
-  await ctx.route(/gstatic\.com\/firebasejs\/[\d.]+\/(firebase-[a-z]+\.js)$/, async r => {
+export async function route(ctx, mode = 'demo', appCheck = '', fake) {
+  await ctx.route(/gstatic\.com\/firebasejs\/[\d.]+\/(firebase-[a-z-]+\.js)$/, async r => {
     const name = r.request().url().split('/').pop();
     r.fulfill({ contentType: 'text/javascript', body: await readFile(path.join(FB, name), 'utf8') });
   });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
-  await ctx.route(/\/config\.js$/, r => r.fulfill({ contentType: 'text/javascript', body: testConfig(mode) }));
+  await ctx.route(/\/config\.js$/, r => r.fulfill({ contentType: 'text/javascript', body: testConfig(mode, appCheck || undefined) }));
+  if ((appCheck || process.env.SILAH_APPCHECK) && fake !== false) await fakeAppCheck(ctx, fake || {});
+}
+
+/** App Check without Google: a stand-in reCAPTCHA script and token exchange. Counts calls in ctx.appCheck. */
+export async function fakeAppCheck(ctx, { ttl = '3600s', recaptcha = 'ok', exchange = 200 } = {}) {
+  const st = ctx.appCheck = { scripts: 0, exchanges: 0, tokens: [] };
+  const fake = `(function(){var g={ready:function(cb){setTimeout(cb,0)},render:function(c,o){g._o=o;return 1},execute:function(){g._o&&g._o.callback&&g._o.callback('fake-recaptcha-token');return Promise.resolve('fake-recaptcha-token')}};window.grecaptcha=Object.assign({enterprise:g},g);})();`;
+  await ctx.route(/google\.com\/recaptcha\//, r => { st.scripts++; if (recaptcha === 'hang') return; return recaptcha === 'blocked' ? r.abort() : r.fulfill({ contentType: 'text/javascript', body: fake }); });
+  await ctx.route(/content-firebaseappcheck\.googleapis\.com/, r => {
+    st.exchanges++; st.lastUrl = r.request().url();
+    if (exchange !== 200) return r.fulfill({ status: exchange, contentType: 'application/json', body: '{"error":{"code":403,"status":"PERMISSION_DENIED"}}' });
+    const token = 'fake-appcheck-token-' + st.exchanges; st.tokens.push(token);
+    return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ token, ttl }) });
+  });
+  return st;
 }
 
 export function watch(page) {

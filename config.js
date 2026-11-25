@@ -13,4 +13,8 @@ export const CONFIG = {
     messagingSenderId: '596282595018',
     appId: '1:596282595018:web:4b4ad3751783c77b944633',
   },
+  // Firebase App Check (docs/APP_CHECK.md). Empty siteKey = off: the portal behaves exactly as before.
+  // siteKey is the PUBLIC reCAPTCHA site key. Never put a secret key or a debug token in this file.
+  // provider: 'enterprise' (Google's recommendation for new integrations) or 'v3'.
+  appCheck: { siteKey: '', provider: 'enterprise' },
 };

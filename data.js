@@ -7,11 +7,46 @@ export const isConfigured = () => !!(CONFIG.firebase && CONFIG.firebase.apiKey &
 
 export async function initData() { return isConfigured() ? firebaseApi() : demoApi(); }
 
+/* ======================= App Check (D-15) ======================= */
+// Off unless a site key is set. Never blocks the portal: if reCAPTCHA or the token exchange fails, Firestore still
+// gets the request (without a valid token) and only rejects it once the owner turns on Enforce in the console.
+// Local debugging only: http://localhost…/?appcheckdebug=1 uses the debug provider; the SDK prints a token in the
+// browser console that the owner registers under App Check › Apps › Manage debug tokens. Nothing is committed.
+export async function startAppCheck(app, opts) {
+  const o = opts || {};
+  if (!o.siteKey) return null;
+  try {
+    if (['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('appcheckdebug')) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    // Load reCAPTCHA ourselves first. If it is blocked (ad blocker, network), the SDK would wait for it forever and
+    // hold up sign-in and every Firestore call, even before Enforce. So without reCAPTCHA we skip App Check.
+    const v3 = o.provider === 'v3';
+    if (!(await recaptchaReady(v3, 6000))) { console.warn('App Check skipped: reCAPTCHA did not load'); return null; }
+    const C = await import(FB + 'firebase-app-check.js');
+    const Provider = v3 ? C.ReCaptchaV3Provider : C.ReCaptchaEnterpriseProvider;
+    return C.initializeAppCheck(app, { provider: new Provider(o.siteKey), isTokenAutoRefreshEnabled: true });
+  } catch (e) { console.warn('App Check did not start', e); return null; }
+}
+
+function recaptchaReady(v3, ms) {
+  const get = () => v3 ? self.grecaptcha : self.grecaptcha && self.grecaptcha.enterprise;
+  return new Promise(resolve => {
+    let done = false; const end = ok => { if (!done) { done = true; resolve(ok); } };
+    setTimeout(() => end(false), ms);
+    const ready = () => { const g = get(); if (g && g.ready) g.ready(() => end(true)); else end(false); };
+    if (get()) return ready();
+    const el = document.createElement('script');
+    el.src = 'https://www.google.com/recaptcha/' + (v3 ? 'api.js' : 'enterprise.js'); el.async = true;
+    el.onload = ready; el.onerror = () => end(false);
+    document.head.appendChild(el);
+  });
+}
+
 /* ======================= Firebase ======================= */
 async function firebaseApi() {
   const [{ initializeApp }, A, F] = await Promise.all([
     import(FB + 'firebase-app.js'), import(FB + 'firebase-auth.js'), import(FB + 'firebase-firestore.js')]);
   const app = initializeApp(CONFIG.firebase);
+  await startAppCheck(app, CONFIG.appCheck); // before any Firestore use; does nothing while the site key is empty
   const auth = A.getAuth(app); auth.languageCode = 'ar';
   const db = F.getFirestore(app);
   // Local testing only: http://localhost…/?emulator=1 talks to the Firebase emulators, never to production.
