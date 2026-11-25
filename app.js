@@ -311,10 +311,16 @@ function duesOf(tid, m) {
   const payAbsent = D.main.payAbsent !== false;
   const recs = D.att.filter(a => a.teacherId === tid && a.month === m && (a.status === 'present' || a.status === 'late' || (payAbsent && a.status === 'absent')));
   const minutes = recs.reduce((n, a) => n + durOf(sById(a.studentId)), 0);
-  const rate = Number((D.tRates[tid] || {}).hourRate) || 0;
+  const tr = D.tRates[tid] || {};
+  const rate = Number(tr.hourRate) || 0;
+  // mode 'full' (e.g. the academy owner): dues are everything their own students paid this month.
+  const full = tr.mode === 'full';
+  const feeTotal = full ? D.payments.filter(p => p.month === m && (sById(p.studentId) || {}).teacherId === tid)
+    .reduce((n, p) => n + (p.egp != null ? Number(p.egp) : U.toEGP(D.rates, p.amount, p.currency)), 0) : 0;
   const paid = D.payouts.filter(p => p.teacherId === tid && p.month === m).reduce((n, p) => n + (Number(p.amount) || 0), 0);
-  return { sessions: recs.length, hours: minutes / 60, rate, due: minutes / 60 * rate, paid };
+  return { sessions: recs.length, hours: minutes / 60, rate, full, due: full ? feeTotal : minutes / 60 * rate, paid };
 }
+const payLbl = x => x.full ? 'مبلغ الطالب كاملًا' : x.rate ? 'أجر الساعة ' + fmtN(x.rate) + ' ج.م' : '';
 function moneyOf(m) {
   const collected = D.payments.filter(p => p.month === m).reduce((n, p) => n + (p.egp != null ? Number(p.egp) : U.toEGP(D.rates, p.amount, p.currency)), 0);
   const expenses = D.expenses.filter(e => e.month === m).reduce((n, e) => n + (e.egp != null ? Number(e.egp) : U.toEGP(D.rates, e.amount, e.currency)), 0);
@@ -329,7 +335,7 @@ function viewAcc() {
   const due = D.students.map(s => ({ s, p: pkg(s) })).filter(x => x.p && x.p.due).sort((a, b) => (a.p.cls === 'miss' ? 0 : 1) - (b.p.cls === 'miss' ? 0 : 1));
   const pays = D.payments.filter(p => p.month === m).sort((a, b) => b.date.localeCompare(a.date));
   const exps = D.expenses.filter(e => e.month === m).sort((a, b) => b.date.localeCompare(a.date));
-  const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); return `<tr><td><b>${esc(t.name)}</b></td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.rate ? fmtN(x.rate) : '<span class="chip warn">حدّد الأجر</span>'}</td><td class="num">${fmtN(x.due)}</td><td class="num">${fmtN(x.paid)}</td><td class="num"><b>${fmtN(x.due - x.paid)}</b></td><td><button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></td></tr>`; }).join('');
+  const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); return `<tr><td><b>${esc(t.name)}</b></td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.full ? 'مبلغ الطالب كاملًا' : x.rate ? fmtN(x.rate) : '<span class="chip warn">حدّد الأجر</span>'}</td><td class="num">${fmtN(x.due)}</td><td class="num">${fmtN(x.paid)}</td><td class="num"><b>${fmtN(x.due - x.paid)}</b></td><td><button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></td></tr>`; }).join('');
   return `<div class="bar"><h1 class="grow">الحسابات</h1>${monthNav()}</div>
   <div class="kpis">
     ${kpi('التحصيل الفعلي', fmtN(M.collected) + ' ج.م', `${pays.length} دفعة في ${U.monthLabel(m)}`)}
@@ -348,7 +354,7 @@ function viewAcc() {
   </div>
   <section class="panel" style="margin-top:14px"><div class="ph"><h2>مستحقات المعلمين · ${U.monthLabel(m)}</h2><label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="payAbsent" style="width:auto" ${D.main.payAbsent !== false ? 'checked' : ''} ${can.admin() ? '' : 'disabled'}> احتساب غياب الطالب دون عذر للمعلم</label></div>
     <div class="tscroll"><table><thead><tr><th>المعلم</th><th class="num">حصص</th><th class="num">ساعات</th><th class="num">أجر الساعة (ج.م)</th><th class="num">المستحق</th><th class="num">المصروف</th><th class="num">المتبقي</th><th></th></tr></thead><tbody>${tRows}</tbody></table></div>
-    <p class="note">المستحق = ساعات الحصص المسجّلة (حضر وتأخر${D.main.payAbsent !== false ? ' وغاب' : ''}) × أجر الساعة. عدّل أجر الساعة من تبويب «المعلمون».</p>
+    <p class="note">المستحق = ساعات الحصص المسجّلة (حضر وتأخر${D.main.payAbsent !== false ? ' وغاب' : ''}) × أجر الساعة. ومن نوع أجره «مبلغ الطالب كاملًا» فمستحقه كل ما دفعه طلابه في الشهر. عدّل ذلك من تبويب «المعلمون».</p>
   </section>
   <div class="cols2" style="margin-top:14px">
     <section class="panel"><div class="ph"><h2>المصروفات</h2><button class="btn blue sm" type="button" data-act="expense">+ مصروف</button></div>
@@ -485,7 +491,7 @@ function viewTeachers() {
   return `<div class="bar"><h1 class="grow">المعلمون</h1><button class="btn red" type="button" data-act="addt">+ معلم</button></div>
   ${Object.keys(D.teachers).length ? `<div class="cards">${Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); const st = D.students.filter(s => s.teacherId === id); return `<article class="card">
     <div class="row"><div class="who"><b>${esc(t.name)}</b><span>${esc(t.section || '')} · ${st.length} طالب</span></div><button class="linkbtn" type="button" data-act="editt" data-t="${id}">تعديل</button></div>
-    <div class="chips">${x.rate ? chip('أجر الساعة ' + fmtN(x.rate) + ' ج.م') : chip('أجر الساعة غير محدد', 'warn')}${chip(x.sessions + ' حصة هذا الشهر')}${chip('مستحق ' + fmtN(x.due) + ' ج.م')}</div>
+    <div class="chips">${payLbl(x) ? chip(payLbl(x)) : chip('أجر الساعة غير محدد', 'warn')}${chip(x.sessions + ' حصة هذا الشهر')}${chip('مستحق ' + fmtN(x.due) + ' ج.م')}</div>
     ${U.safeLink(t.room) ? `<a class="btn ghost sm" href="${esc(U.safeLink(t.room))}" target="_blank" rel="noopener" style="align-self:flex-start">الغرفة الثابتة</a>` : ''}
     <span class="sub">${st.map(s => esc(s.name)).join('، ')}</span></article>`; }).join('')}</div>` : '<div class="empty">لا معلمين بعد. أضف أول معلم، أو انقل بيانات رتّل من تبويب «الصلاحيات والنقل».</div>'}`;
 }
@@ -495,12 +501,14 @@ function openTeacher(tid) {
     <div class="two"><div class="field"><label for="t-name">الاسم</label><input id="t-name" value="${esc(t.name || '')}"></div>
     <div class="field"><label for="t-sec">القسم</label><input id="t-sec" value="${esc(t.section || '')}" placeholder="مثلًا: قسم البنات"></div></div>
     <div class="two"><div class="field"><label for="t-room">رابط الغرفة الثابتة</label><input id="t-room" dir="ltr" value="${esc(t.room || '')}"></div>
-    <div class="field"><label for="t-rate">أجر الساعة (ج.م)</label><input id="t-rate" type="number" min="0" step="any" value="${esc(r.hourRate || '')}"></div></div>
+    <div class="field"><label for="t-mode">نوع الأجر</label><select id="t-mode"><option value="hour" ${r.mode !== 'full' ? 'selected' : ''}>بالساعة</option><option value="full" ${r.mode === 'full' ? 'selected' : ''}>مبلغ الطالب كاملًا (صاحب الأكاديمية)</option></select></div></div>
+    <div class="two"><div class="field" id="t-rate-f" ${r.mode === 'full' ? 'hidden' : ''}><label for="t-rate">أجر الساعة (ج.م)</label><input id="t-rate" type="number" min="0" step="any" value="${esc(r.hourRate || '')}"></div></div>
     <div class="foot"><span></span><div class="actions"><button class="btn ghost" type="button" data-act="close">إلغاء</button><button class="btn red" type="submit">حفظ</button></div></div></form>`);
+  $('t-mode').onchange = () => { $('t-rate-f').hidden = $('t-mode').value === 'full'; };
   $('tform').onsubmit = async e => {
     e.preventDefault(); const name = $('t-name').value.trim(); if (!name) return toast('اكتب اسم المعلم');
     const id = tid || uniqueId(U.slug(name), Object.keys(D.teachers));
-    try { await S.api.set('teachers', id, { name, section: $('t-sec').value.trim(), room: $('t-room').value.trim() }); await S.api.set('teacherRates', id, { hourRate: Number($('t-rate').value) || 0 }); closeSheet(); toast('حُفظ'); await reload(); } catch (x) { fail(x); }
+    try { await S.api.set('teachers', id, { name, section: $('t-sec').value.trim(), room: $('t-room').value.trim() }); await S.api.set('teacherRates', id, { hourRate: Number($('t-rate').value) || 0, mode: $('t-mode').value }); closeSheet(); toast('حُفظ'); await reload(); } catch (x) { fail(x); }
   };
 }
 
@@ -594,7 +602,7 @@ function viewMyMonth() {
   const tid = S.prof.teacherId, m = S.month, x = duesOf(tid, m);
   const pays = D.payouts.filter(p => p.month === m);
   return `<div class="bar"><h1 class="grow">شهري ومستحقاتي</h1>${monthNav()}</div>
-  <div class="kpis">${kpi('حصص محتسبة', x.sessions, x.hours.toFixed(1) + ' ساعة')}${kpi('أجر الساعة', x.rate ? fmtN(x.rate) + ' ج.م' : '—', 'تحدده الحسابات')}${kpi('المستحق', fmtN(x.due) + ' ج.م', 'صُرف ' + fmtN(x.paid) + ' ج.م')}${kpi('المتبقي', fmtN(x.due - x.paid) + ' ج.م', U.monthLabel(m), x.due - x.paid > 0 ? 'red' : 'ok')}</div>
+  <div class="kpis">${kpi('حصص محتسبة', x.sessions, x.hours.toFixed(1) + ' ساعة')}${x.full ? kpi('نوع الأجر', 'مبلغ الطالب كاملًا', 'تحسبه الحسابات من دفعات طلابك') : kpi('أجر الساعة', x.rate ? fmtN(x.rate) + ' ج.م' : '—', 'تحدده الحسابات')}${x.full ? kpi('ما صُرف لك', fmtN(x.paid) + ' ج.م', U.monthLabel(m)) : kpi('المستحق', fmtN(x.due) + ' ج.م', 'صُرف ' + fmtN(x.paid) + ' ج.م') + kpi('المتبقي', fmtN(x.due - x.paid) + ' ج.م', U.monthLabel(m), x.due - x.paid > 0 ? 'red' : 'ok')}</div>
   <section class="panel"><h2>طلابي هذا الشهر</h2>${legend()}
   ${D.students.map(s => `<div class="grid" style="gap:6px;padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(s.name)}</b>${dotsFor(s, m)}</div>`).join('') || '<p class="note">لا طلاب.</p>'}</section>
   ${pays.length ? `<section class="panel" style="margin-top:14px"><h2>ما صُرف لك</h2>${pays.map(p => `<div class="alert"><span><b>${fmtN(p.amount)} ج.م</b> · ${fmtDate(p.date)}${p.note ? ' · ' + esc(p.note) : ''}</span></div>`).join('')}</section>` : ''}`;
