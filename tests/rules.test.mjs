@@ -153,6 +153,15 @@ test('the supervisor handles students and teaching but not money', async () => {
   await assertFails(getDocs(collection(db, 'users')));
 });
 
+test('tightened after D-12: no write the portal does not use', async () => {
+  await assertFails(setDoc(doc(as('sup'), 'billing', 'yusuf'), { quota: 1 }, { merge: true }));
+  await assertFails(setDoc(doc(as('acc'), 'settings', 'main'), { payAbsent: false }, { merge: true }));
+  let id; await env.withSecurityRulesDisabled(async c => { id = (await addDoc(collection(c.firestore(), 'contacts'), { studentId: 'yusuf', note: 'x' })).id; });
+  await assertSucceeds(addDoc(collection(as('acc'), 'contacts'), { studentId: 'yusuf', note: 'y' }));
+  await assertFails(deleteDoc(doc(as('acc'), 'contacts', id)));
+  await assertSucceeds(deleteDoc(doc(as('sup'), 'contacts', id)));
+});
+
 /* ---- public registration form ---- */
 test('the public form can create a well-formed registration only', async () => {
   const db = anon();
