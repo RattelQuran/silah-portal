@@ -22,7 +22,10 @@ export const pad = n => String(n).padStart(2, '0');
 export const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 export const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 export const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); };
-export const today = () => ymd(new Date());
+// "Today" is the academy's calendar day (Cairo), the same day attendance and report ids are keyed by.
+// Using the device's own date made a teacher abroad see the wrong day near midnight (QA F-1).
+export const ACAD_TZ = 'Africa/Cairo';
+export const today = () => localDate(Date.now(), ACAD_TZ);
 export const thisMonth = () => today().slice(0, 7);
 export const addMonths = (m, n) => { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo - 1 + n, 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); };
 export const monthLabel = m => { const [y, mo] = m.split('-').map(Number); return MONTHS[mo - 1] + ' ' + y; };

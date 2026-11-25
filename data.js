@@ -14,6 +14,11 @@ async function firebaseApi() {
   const app = initializeApp(CONFIG.firebase);
   const auth = A.getAuth(app); auth.languageCode = 'ar';
   const db = F.getFirestore(app);
+  // Local testing only: http://localhost…/?emulator=1 talks to the Firebase emulators, never to production.
+  if (['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('emulator')) {
+    A.connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    F.connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  }
   const ref = (c, id) => F.doc(db, c, id);
   const snapDocs = s => s.docs.map(d => ({ id: d.id, ...d.data() }));
   const ownerEmail = String(CONFIG.ownerEmail || '').trim().toLowerCase();
