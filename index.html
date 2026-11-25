@@ -164,6 +164,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--navy);outline:none}
 .login .roles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .or{color:var(--muted);font-size:.85rem}
 
+/* touch screens: keep every control at a comfortable 40px+ hit area (WCAG 2.5.8) */
+@media (pointer:coarse){.btn.sm,.linkbtn,select,.tabs button{min-height:40px}.btn.sm{padding-block:8px}.linkbtn{padding-inline:8px}.nav button{width:40px;height:40px}}
 @media (max-width:860px){.cols2,.cols3{grid-template-columns:1fr}}
 @media (max-width:520px){.two,.three{grid-template-columns:1fr}.me span{display:none}.nav span{min-width:110px}.login .roles{grid-template-columns:1fr}}
 </style>
