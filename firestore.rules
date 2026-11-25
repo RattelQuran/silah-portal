@@ -53,7 +53,7 @@ service cloud.firestore {
 
     // ---------- reference data ----------
     match /teachers/{id} { allow read: if hasProf(); allow write: if isAdmin(); }
-    match /settings/main { allow read: if hasProf(); allow write: if isAdmin() || isAcc(); }
+    match /settings/main { allow read: if hasProf(); allow write: if isAdmin(); }
     match /settings/rates { allow read: if isStaff(); allow write: if isAcc(); }
     match /settings/{id} { allow read: if isAdmin(); }                     // lets the admin back up the whole collection
     match /teacherRates/{tid} {
@@ -69,7 +69,7 @@ service cloud.firestore {
     }
     match /billing/{sid} {
       allow read: if isStaff() || parentOf(sid);
-      allow write: if isAcc() || isSup();
+      allow write: if isAcc();
     }
 
     // ---------- teaching ----------
@@ -100,7 +100,7 @@ service cloud.firestore {
                                            && (resource == null || teacherOwnsOld()));
       allow delete: if isSup() || teacherOwnsOld();
     }
-    match /contacts/{id} { allow read, write: if isStaff(); }
+    match /contacts/{id} { allow read, create, update: if isStaff(); allow delete: if isSup(); }
 
     // ---------- money ----------
     match /payments/{id} {
