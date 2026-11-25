@@ -171,3 +171,56 @@ test('import rejects files that are not Silah backups or Rattel exports', async 
   }
   await ctx.close();
 });
+
+/* ---- Direction D refinement: seven widths, every role, plus the new dashboard and accounts parts ---- */
+const WIDTHS = [320, 375, 390, 430, 768, 1024, 1440];
+for (const role of Object.keys(ROLE_TABS)) test(`${role}: every tab fits at ${WIDTHS.join(', ')}px`, async () => {
+  const { ctx, page, log } = await open(role, { viewport: { width: 1440, height: 900 } });
+  for (const w of WIDTHS) {
+    await page.setViewportSize({ width: w, height: 860 });
+    for (let i = 0; i < ROLE_TABS[role].length; i++) {
+      await page.locator('#tabs [role="tab"]').nth(i).click();
+      assert.ok(await overflow(page) <= 1, `${ROLE_TABS[role][i]} overflows at ${w}px`);
+    }
+  }
+  assert.deepEqual(log.errors, []);
+  await ctx.close();
+});
+
+test('sign-in fits at every width', async () => {
+  const ctx = await b.newContext({ locale: 'ar' }); await route(ctx, 'demo'); const page = await ctx.newPage();
+  await page.goto(srv.url + '/index.html'); await page.waitForSelector('[data-demo]');
+  for (const w of WIDTHS) { await page.setViewportSize({ width: w, height: 800 }); assert.ok(await overflow(page) <= 1, `login overflows at ${w}px`); }
+  await ctx.close();
+});
+
+test('phones: teacher tabs sit in a bottom bar, admin keeps the top bar', async () => {
+  for (const [role, bottom] of [['teacher', true], ['admin', false]]) {
+    const { ctx, page } = await open(role, { viewport: { width: 375, height: 780 }, hasTouch: true, isMobile: true });
+    const pos = await page.evaluate(() => getComputedStyle(document.querySelector('.tabsbar')).position);
+    assert.equal(pos === 'fixed', bottom, role);
+    await ctx.close();
+  }
+});
+
+test('dashboard: alerts are grouped urgent first, and each action button opens its tab', async () => {
+  const { ctx, page } = await open('admin', { viewport: { width: 1366, height: 900 } });
+  const groups = await page.$$eval('#main .grp', hs => hs.map(h => h.textContent));
+  assert.equal(groups[0], 'عاجل');
+  const btn = page.locator('#main .alert [data-act="go"]').first(); const tab = await btn.getAttribute('data-tab');
+  await btn.click();
+  assert.equal(await page.getAttribute('#main', 'aria-labelledby'), 'tab-' + tab);
+  await ctx.close();
+});
+
+test('accounts: renewal filter narrows the table and the counts add up', async () => {
+  const { ctx, page } = await open('accountant', { viewport: { width: 1366, height: 900 } });
+  const all = await page.locator('[data-act="rnf"][data-k="all"] b').innerText();
+  const parts = await Promise.all(['none', 'follow', 'stop'].map(k => page.locator(`[data-act="rnf"][data-k="${k}"] b`).innerText()));
+  assert.ok(parts.map(Number).reduce((a, x) => a + x, 0) <= Number(all));
+  await page.click('[data-act="rnf"][data-k="stop"]');
+  assert.equal(await page.getAttribute('[data-act="rnf"][data-k="stop"]', 'aria-pressed'), 'true');
+  const rows = await page.locator('[data-rn]').count();
+  assert.equal(rows, Number(parts[2]));
+  await ctx.close();
+});
