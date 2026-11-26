@@ -1,9 +1,10 @@
 import { CONFIG } from './config.js';
 import { initData } from './data.js';
 import * as U from './util.js';
+import { BACKUP_COLS, COL_AR, opsFromFile, planImport, checkOps } from './backup.js';
 const { esc, fmtN, fmtDate, fmtDay, fmtTime, ST, ST_KEYS, COUNTED, DAYS, DAY_ORDER } = U;
 
-const ACAD_TZ = 'Africa/Cairo';           // dates of attendance/reports are keyed in academy time
+const ACAD_TZ = U.ACAD_TZ;                // dates of attendance/reports are keyed in academy time
 const $ = id => document.getElementById(id);
 const S = { api: null, user: null, prof: null, tab: '', date: U.today(), month: U.thisMonth(), q: '', tf: 'all', rf: 'open', busy: new Set() };
 let D = emptyData();
@@ -12,6 +13,10 @@ function emptyData() { return { teachers: {}, students: [], billing: {}, att: []
 /* ---------------- boot & auth ---------------- */
 let toastT;
 function toast(m) { const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+// D-17: a month whose payroll is approved is closed for the teacher (enforced in firestore.rules; this only explains it)
+const CLOSED_MSG = 'هذا الشهر مغلق ماليًا: اعتُمد راتبه. اطلب أي تصحيح من المشرف أو المدير.';
+const payClosed = (tid, m) => !!tid && D.payroll.some(p => p.teacherId === tid && p.month === m && p.status === 'approved');
+const teacherLocked = d => S.prof && S.prof.role === 'teacher' && payClosed(S.prof.teacherId, d.slice(0, 7));
 function fail(e) { console.error(e); const c = e && e.code || ''; toast(c.includes('permission') ? 'لا تملك صلاحية لهذا الإجراء' : 'تعذّر الحفظ. تحقق من الاتصال وحاول مرة أخرى'); }
 
 (async function boot() {
@@ -125,8 +130,9 @@ function render() {
   $('meName').innerHTML = `<span>${esc(S.prof.name || S.user.email || '')}</span>`;
   const tabs = tabsFor(role());
   const newRegs = D.regs.filter(r => (r.status || 'new') === 'new').length;
-  $('tabs').innerHTML = tabs.map(([k, l]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === S.tab}">${l}${k === 'regs' && newRegs ? ` <span class="cnt">${newRegs}</span>` : ''}</button>`).join('');
+  $('tabs').innerHTML = tabs.map(([k, l]) => `<button role="tab" type="button" id="tab-${k}" data-tab="${k}" aria-controls="main" aria-selected="${k === S.tab}" tabindex="${k === S.tab ? 0 : -1}">${l}${k === 'regs' && newRegs ? ` <span class="cnt">${newRegs}</span>` : ''}</button>`).join('');
   $('tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); });
+  $('main').setAttribute('role', 'tabpanel'); $('main').setAttribute('aria-labelledby', 'tab-' + S.tab);
   const V = { dash: viewDash, sup: viewSup, acc: viewAcc, students: viewStudents, teachers: viewTeachers, people: viewPeople, regs: viewRegs, monthly: viewMonthly, mine: viewMine, mymonth: viewMyMonth, kids: viewKids }[S.tab];
   $('main').innerHTML = V ? V() : '';
   afterRender();
@@ -183,6 +189,7 @@ function sessionCard(o, opts = {}) {
   </article>`;
 }
 async function mark(sid, status) {
+  if (teacherLocked(S.date)) { toast(CLOSED_MSG); return; }
   const id = S.date + '_' + sid; if (S.busy.has(id)) return; S.busy.add(id);
   const s = sById(sid); const cur = D.attMap[id];
   try {
@@ -191,7 +198,7 @@ async function mark(sid, status) {
       const data = { studentId: sid, teacherId: s.teacherId || '', date: S.date, month: S.date.slice(0, 7), status, at: Date.now(), by: S.user.uid };
       await S.api.set('attendance', id, data);
       D.att = D.att.filter(a => !(a.date === S.date && a.studentId === sid)).concat([data]); D.attMap[id] = data;
-      toast(s.name + ': ' + ST[status].l);
+      toast(s.name + ': ' + ST[status].l + (payClosed(s.teacherId, data.month) ? ' · تصحيح بعد اعتماد الراتب: المعتمد لا يتغير، ويظهر الفرق في الحسابات' : ''));
     }
     render();
   } catch (e) { fail(e); } finally { S.busy.delete(id); }
@@ -217,7 +224,7 @@ function openReport(sid) {
     const body = { studentId: sid, teacherId: s.teacherId || '', date: S.date, month: S.date.slice(0, 7), newMem: $('r-new').value.trim(), review: $('r-rev').value.trim(), rating: rt ? rt.value : '', homework: $('r-hw').value.trim(), notes: $('r-notes').value.trim(), at: Date.now(), by: S.user.uid };
     try {
       await S.api.set('reports', id, body);
-      if (!D.attMap[id]) await S.api.set('attendance', id, { studentId: sid, teacherId: s.teacherId || '', date: S.date, month: S.date.slice(0, 7), status: 'present', at: Date.now(), by: S.user.uid });
+      if (!D.attMap[id] && !teacherLocked(S.date)) await S.api.set('attendance', id, { studentId: sid, teacherId: s.teacherId || '', date: S.date, month: S.date.slice(0, 7), status: 'present', at: Date.now(), by: S.user.uid });
       closeSheet(); toast('حُفظ التقرير'); await reload();
     } catch (x) { fail(x); }
   };
@@ -353,7 +360,7 @@ function viewAcc() {
   const due = D.students.map(s => ({ s, p: pkg(s) })).filter(x => x.p && x.p.due).sort((a, b) => (a.p.cls === 'miss' ? 0 : 1) - (b.p.cls === 'miss' ? 0 : 1));
   const pays = D.payments.filter(p => p.month === m).sort((a, b) => b.date.localeCompare(a.date));
   const exps = D.expenses.filter(e => e.month === m).sort((a, b) => b.date.localeCompare(a.date));
-  const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); return `<tr><td><b>${esc(t.name)}</b><br>${payStatus(x)}</td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.full ? 'مبلغ الطالب كاملًا' : x.rate ? fmtN(x.rate) : '<span class="chip warn">حدّد الأجر</span>'}</td><td class="num">${fmtN(x.base)}</td><td class="num">${x.bonus ? '+' + fmtN(x.bonus) : ''}${x.bonus && x.deduction ? '<br>' : ''}${x.deduction ? '<span style="color:var(--crimson)">−' + fmtN(x.deduction) + '</span>' : ''}${x.bonus || x.deduction ? '' : '—'}</td><td class="num"><b>${fmtN(x.due)}</b></td><td class="num">${fmtN(x.paid)}</td><td class="num"><b>${fmtN(x.due - x.paid)}</b></td><td><div class="chips" style="flex-wrap:nowrap"><button class="btn ghost sm" type="button" data-act="adj" data-t="${id}">مكافأة/خصم</button>${x.approved && Math.round(x.due) === Number(x.approved.total) ? `<button class="btn ghost sm" type="button" data-act="payundo" data-t="${id}">إلغاء الاعتماد</button>` : `<button class="btn blue sm" type="button" data-act="payok" data-t="${id}">${x.approved ? 'إعادة الاعتماد' : 'اعتماد'}</button>`}<button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></div></td></tr>`; }).join('');
+  const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); return `<tr><td><b>${esc(t.name)}</b><br>${payStatus(x)}${afterPay(id, m, x)}</td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.full ? 'مبلغ الطالب كاملًا' : x.rate ? fmtN(x.rate) : '<span class="chip warn">حدّد الأجر</span>'}</td><td class="num">${fmtN(x.base)}</td><td class="num">${x.bonus ? '+' + fmtN(x.bonus) : ''}${x.bonus && x.deduction ? '<br>' : ''}${x.deduction ? '<span style="color:var(--crimson)">−' + fmtN(x.deduction) + '</span>' : ''}${x.bonus || x.deduction ? '' : '—'}</td><td class="num"><b>${fmtN(x.due)}</b></td><td class="num">${fmtN(x.paid)}</td><td class="num"><b>${fmtN(x.due - x.paid)}</b></td><td><div class="chips" style="flex-wrap:nowrap"><button class="btn ghost sm" type="button" data-act="adj" data-t="${id}">مكافأة/خصم</button>${x.approved && Math.round(x.due) === Number(x.approved.total) ? `<button class="btn ghost sm" type="button" data-act="payundo" data-t="${id}">إلغاء الاعتماد</button>` : `<button class="btn blue sm" type="button" data-act="payok" data-t="${id}">${x.approved ? 'إعادة الاعتماد' : 'اعتماد'}</button>`}<button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></div></td></tr>`; }).join('');
   const rnCount = k => due.filter(({ s }) => (renewalOf(D.billing[s.id]).status || 'none') === k).length;
   return `<div class="bar"><h1 class="grow">الحسابات</h1>${monthNav()}</div>
   <div class="kpis">
@@ -522,7 +529,7 @@ function viewRegs() {
     const hello = `السلام عليكم ${r.parentName || ''}، معك أكاديمية صلة 🌿 وصلنا طلبك لحصة تعريفية مجانية لـ${r.studentName || 'طفلك'} في ${REG_COURSE[r.course] || 'القرآن الكريم'}. متى يناسبك موعد الحصة؟`;
     return `<article class="card">
     <div class="row"><div class="who"><b>${esc(r.studentName || '—')}${r.studentAge ? ' · ' + esc(r.studentAge) + ' سنوات' : ''}</b><span>ولي الأمر: ${esc(r.parentName || '—')}${r.country ? ' · ' + esc(r.country) : ''}</span></div>${chip(st[0], st[1])}</div>
-    <div class="chips">${chip(REG_COURSE[r.course] || r.course || '—')}${chip('التواصل: ' + (REG_TIME[r.preferredTime] || r.preferredTime || '—'))}${r.at ? chip(fmtDate(new Date(r.at).toISOString().slice(0, 10))) : ''}</div>
+    <div class="chips">${chip(REG_COURSE[r.course] || r.course || '—')}${chip('التواصل: ' + (REG_TIME[r.preferredTime] || r.preferredTime || '—'))}${r.at ? chip(fmtDate(U.localDate(r.at, ACAD_TZ))) : ''}</div>
     ${r.notes ? `<span class="sub">${esc(r.notes)}</span>` : ''}
     <div class="bar" style="margin:0">${wl ? `<a class="btn wa sm" href="${wl}?text=${encodeURIComponent(hello)}" target="_blank" rel="noopener">واتساب <span dir="ltr">${esc(r.whatsapp)}</span></a>` : `<span class="note" dir="ltr">${esc(r.whatsapp || '')}</span>`}
       <label class="note" style="display:flex;gap:6px;align-items:center">الحالة <select data-regst="${r.id}" style="width:auto">${Object.entries(REG_ST).map(([k, [l]]) => `<option value="${k}" ${(r.status || 'new') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -582,10 +589,14 @@ function viewPeople() {
   <div class="tscroll"><table><thead><tr><th>الاسم</th><th>البريد</th><th>الدور</th><th>مرتبط بـ</th><th>الحالة</th><th></th></tr></thead><tbody>
   ${people.map(p => `<tr><td><b>${esc(p.name || '—')}</b></td><td dir="ltr" style="text-align:start">${esc(p.email)}</td><td>${chip(U.ROLES[p.role] || p.role)}</td><td>${esc(who(p) || '—')}</td><td>${p.user ? chip('دخل البوابة', 'ok') : chip('لم يدخل بعد', 'warn')}</td><td>${p.owner ? '' : `<button class="linkbtn" type="button" data-act="editinv" data-e="${esc(p.email)}">تعديل</button>`}</td></tr>`).join('') || '<tr><td colspan="6" class="note">لا أحد بعد.</td></tr>'}
   </tbody></table></div></section>
-  <section class="panel" style="margin-top:14px"><h2>نقل بيانات دفتر رتّل</h2>
-    <p class="note">اختر ملف <b dir="ltr">rattel-export.json</b> من مجلد migration. يُنقل المعلمون وأجورهم، والطلاب، والباقات، والحضور، والتقارير. النقل يستبدل السجلات التي تحمل نفس المعرّف ولا يحذف غيرها.</p>
+  <section class="panel" style="margin-top:14px"><h2>النسخ الاحتياطي</h2>
+    <p class="note">نزّل نسخة كاملة من بيانات البوابة في ملف واحد واحفظه في مكان آمن (مثل Google Drive). ننصح بنسخة أسبوعيًا وقبل أي نقل بيانات.</p>
+    <div class="actions"><button class="btn blue" type="button" data-act="backup">تنزيل نسخة احتياطية</button></div>
+  </section>
+  <section class="panel" style="margin-top:14px"><h2>استعادة نسخة أو نقل بيانات دفتر رتّل</h2>
+    <p class="note">اختر ملف نسخة احتياطية من صلة أو ملف <b dir="ltr">rattel-export.json</b>. تظهر لك معاينة قبل أي حفظ. السجلات الجديدة فقط تُضاف، والموجودة لا تُستبدل إلا إذا اخترت ذلك. لا يُحذف أي سجل.</p>
     <div class="actions"><input id="impFile" type="file" accept=".json,application/json" style="max-width:320px"><button class="btn blue" type="button" data-act="import" id="impBtn" disabled>نقل البيانات</button></div>
-    <p class="note" id="impInfo"></p>
+    <p class="note" id="impInfo" role="status"></p><div id="impPrev"></div>
   </section>`;
 }
 function openInvite(email) {
@@ -619,33 +630,53 @@ async function deleteInvite(em, btn) {
   if (btn.dataset.armed !== '1') { btn.dataset.armed = '1'; btn.textContent = 'اضغط مرة أخرى للتأكيد'; return; }
   try { await S.api.del('invites', em); const u = D.users.find(x => String(x.email || '').toLowerCase() === em); if (u) await S.api.del('users', u.id); closeSheet(); toast('أُلغي الوصول'); await reload(); } catch (x) { fail(x); }
 }
-let impData = null;
-function onImportFile(f) {
-  const info = $('impInfo'); impData = null; $('impBtn').disabled = true;
-  const r = new FileReader();
-  r.onload = () => {
-    try {
-      const j = JSON.parse(r.result);
-      if (!Array.isArray(j.students) || !Array.isArray(j.teachers)) throw new Error('shape');
-      impData = j; $('impBtn').disabled = false;
-      info.textContent = `جاهز للنقل: ${j.teachers.length} معلمين، ${j.students.length} طالبًا، ${(j.attendance || []).length} سجل حضور، ${(j.reports || []).length} تقريرًا، ${(j.payments || []).length} دفعة.`;
-    } catch (e) { info.textContent = 'الملف ليس ملف نقل من دفتر رتّل.'; }
-  };
-  r.readAsText(f);
+/* ---------------- backup, restore & import ----------------
+   Backup: the admin downloads every collection as one JSON file (free alternative to scheduled exports).
+   Restore/import: a file is parsed and checked, then a preview shows per collection how many records
+   are new and how many already exist. Existing records are skipped unless the admin ticks "replace",
+   and a fresh backup is downloaded automatically before anything is replaced. */
+function download(name, text) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+async function exportBackup(btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const collections = {};
+    for (const c of BACKUP_COLS) collections[c] = await S.api.list(c);
+    const n = Object.values(collections).reduce((a, x) => a + x.length, 0);
+    const file = { format: 'silah-backup', version: 1, exportedAt: new Date().toISOString(), academy: CONFIG.academy || '', counts: Object.fromEntries(Object.entries(collections).map(([k, v]) => [k, v.length])), collections };
+    download('silah-backup-' + U.today() + '.json', JSON.stringify(file, null, 1));
+    toast('نُزّلت نسخة احتياطية: ' + fmtN(n) + ' سجلًا'); return true;
+  } catch (x) { fail(x); return false; } finally { if (btn) btn.disabled = false; }
+}
+let imp = null; // { kind, ops, bad, existing, plan }
+async function onImportFile(f) {
+  const info = $('impInfo'); imp = null; $('impBtn').disabled = true; $('impPrev').innerHTML = ''; info.textContent = 'جارٍ فحص الملف…';
+  let j; try { j = JSON.parse(await f.text()); } catch (e) { info.textContent = 'الملف ليس JSON صالحًا.'; return; }
+  let r; try { r = opsFromFile(j, D.rates, D.main); } catch (e) { info.textContent = e.message; return; }
+  if (!r.ops.length) { info.textContent = 'الملف لا يحتوي أي سجل صالح.'; return; }
+  const existing = {};
+  try { for (const c of new Set(r.ops.map(o => o.c))) existing[c] = new Set((await S.api.list(c)).map(x => x.id)); } catch (x) { fail(x); info.textContent = ''; return; }
+  imp = { ...r, existing, plan: planImport(r.ops, existing), issues: checkOps(r.ops) };
+  const rows = Object.entries(imp.plan).map(([c, x]) => `<tr><td>${esc(COL_AR[c] || c)}</td><td class="num">${fmtN(x.total)}</td><td class="num">${fmtN(x.fresh)}</td><td class="num">${x.clash ? `<b style="color:var(--crimson)">${fmtN(x.clash)}</b>` : '0'}</td></tr>`).join('');
+  const clash = Object.values(imp.plan).reduce((a, x) => a + x.clash, 0), fresh = Object.values(imp.plan).reduce((a, x) => a + x.fresh, 0);
+  $('impPrev').innerHTML = `<div class="tscroll"><table><thead><tr><th>البيانات</th><th class="num">في الملف</th><th class="num">جديد</th><th class="num">موجود مسبقًا</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${imp.issues.length ? `<div class="alert red" role="alert" style="margin-top:8px"><span><b>تحذير: ${fmtN(imp.issues.length)} سجلًا بشكل غير سليم</b> (مبلغ ليس رقمًا، أو عملة أو تاريخ أو حالة غير معروفة). أمثلة: ${imp.issues.slice(0, 5).map(i => esc((COL_AR[i.c] || i.c) + ' ' + i.id + ': ' + i.why)).join('، ')}. الاستعادة تكتبها كما هي، وقد تُظهر أرقامًا خاطئة.</span></div>
+    <label class="note" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="impAck" style="width:auto"> راجعت التحذير، وأريد المتابعة بهذه السجلات</label>` : ''}
+    ${clash ? `<label class="note" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="impOver" style="width:auto"> استبدال ${fmtN(clash)} سجلًا موجودًا بنسخة الملف (تُنزَّل نسخة احتياطية تلقائيًا قبل الاستبدال)</label>` : ''}`;
+  info.textContent = (imp.kind === 'backup' ? 'نسخة احتياطية من صلة' : 'ملف نقل من دفتر رتّل') + ' · ' + fmtN(fresh) + ' سجل جديد' + (clash ? ' · ' + fmtN(clash) + ' موجود مسبقًا ولن يُستبدل إلا باختيارك' : '') + (imp.bad.length ? ' · تُجوهلت ' + imp.bad.length + ' سجلات بلا معرّف صالح' : '') + '.';
+  $('impBtn').disabled = false;
 }
 async function runImport() {
-  const j = impData; if (!j) return; $('impBtn').disabled = true; $('impInfo').textContent = 'جارٍ النقل…';
-  const ops = [];
-  const put = (c, x) => { const { id, ...data } = x; ops.push({ c, id, data }); };
-  j.teachers.forEach(t => put('teachers', { id: t.id, name: t.name, section: (j.sections || {})[t.section] || t.section || '', room: t.room || '' }));
-  Object.entries(j.teacherRates || {}).forEach(([id, v]) => put('teacherRates', { id, hourRate: v }));
-  j.students.forEach(s => put('students', s));
-  (j.billing || []).forEach(b => put('billing', b));
-  (j.attendance || []).forEach(a => put('attendance', a));
-  (j.reports || []).forEach(a => put('reports', a));
-  (j.payments || []).forEach(p => put('payments', { ...p, egp: U.toEGP(D.rates, p.amount, p.currency) }));
-  if (j.settings && j.settings.supervisor) ops.push({ c: 'settings', id: 'main', data: { ...D.main, supervisor: j.settings.supervisor } });
-  try { await S.api.batch(ops); toast('نُقلت ' + ops.length + ' سجلات'); impData = null; await reload(); } catch (x) { fail(x); $('impBtn').disabled = false; }
+  if (!imp) return; const over = !!($('impOver') && $('impOver').checked);
+  const ops = imp.ops.filter(o => over || !(imp.existing[o.c] && imp.existing[o.c].has(o.id)));
+  if (!ops.length) { toast('لا سجلات جديدة. فعّل «استبدال» لاستبدال الموجود.'); return; }
+  if (imp.issues.length && !($('impAck') && $('impAck').checked)) { toast('في الملف سجلات غير سليمة. راجع التحذير وأكّد قبل النقل.'); return; }
+  $('impBtn').disabled = true;
+  if (over) { $('impInfo').textContent = 'تنزيل نسخة احتياطية قبل الاستبدال…'; if (!(await exportBackup())) { $('impBtn').disabled = false; return; } }
+  $('impInfo').textContent = 'جارٍ النقل…';
+  try { await S.api.batch(ops); toast('نُقلت ' + fmtN(ops.length) + ' سجلات'); imp = null; await reload(); } catch (x) { fail(x); $('impBtn').disabled = false; }
 }
 
 /* ================= TEACHER ================= */
@@ -653,6 +684,7 @@ function viewMine() {
   const list = sessionsOn(S.date);
   const t = D.teachers[S.prof.teacherId] || {};
   return `<div class="bar"><h1 class="grow">حلقاتي${t.name ? ' · ' + esc(t.name) : ''}</h1>${dayNav()}</div>
+  ${teacherLocked(S.date) ? `<div class="alert amber" role="status" style="margin-bottom:12px"><span><b>${U.monthLabel(S.date.slice(0, 7))} مغلق ماليًا.</b> اعتُمد راتب هذا الشهر، فلا يمكن تسجيل الحضور أو تعديله أو حذفه. اطلب أي تصحيح من المشرف أو المدير.</span></div>` : ''}
   ${U.safeLink(t.room) ? `<div class="bar"><a class="btn blue" href="${esc(U.safeLink(t.room))}" target="_blank" rel="noopener">دخول غرفتي الثابتة</a></div>` : ''}
   ${list.length ? `<div class="cards">${list.map(o => sessionCard(o)).join('')}</div>` : '<div class="empty">لا حلقات لك في هذا اليوم.</div>'}
   <p class="note" style="margin-top:12px">اضغط حالة الحضور مرة لتسجيلها ومرة ثانية لإلغائها. بعد كل حصة اكتب التقرير، ثم انسخ رسالة الأهل وأرسلها على واتساب.</p>`;
@@ -854,6 +886,14 @@ async function approvePayroll(tid, on) {
     toast(on ? 'اعتُمدت مستحقات ' + tName(tid) : 'أُلغي الاعتماد'); await reload();
   } catch (e) { fail(e); }
 }
+// corrections made after approval: how many attendance records changed since, and the difference from the approved total
+function afterPay(tid, m, x) {
+  if (!x.approved) return '';
+  const n = D.att.filter(a => a.teacherId === tid && a.month === m && (Number(a.at) || 0) > (Number(x.approved.approvedAt) || 0)).length;
+  const diff = Math.round(x.due) - Number(x.approved.total);
+  if (!n && !diff) return '';
+  return `<br><span class="note">${n ? fmtN(n) + ' تعديل حضور بعد الاعتماد' : ''}${n && diff ? ' · ' : ''}${diff ? 'الفرق عن المعتمد ' + (diff > 0 ? '+' : '−') + fmtN(Math.abs(diff)) + ' ج.م (المعتمد ' + fmtN(x.approved.total) + ')' : ''}</span>`;
+}
 function payStatus(x) {
   if (!x.approved) return chip('محسوب', 'exc');
   if (Math.round(x.due) !== Number(x.approved.total)) return chip('تغيّر بعد الاعتماد', 'warn');
@@ -898,7 +938,7 @@ document.addEventListener('click', e => {
     addst: () => openStudent(null), editst: () => openStudent(t.dataset.sid), delst: () => deleteStudent(t.dataset.sid, t),
     addt: () => openTeacher(null), editt: () => openTeacher(t.dataset.t),
     invite: () => openInvite(null), editinv: () => openInvite(t.dataset.e), delinv: () => deleteInvite($('i-email').value.trim().toLowerCase(), t),
-    import: runImport,
+    import: runImport, backup: () => exportBackup(t),
     rf: () => { S.rf = t.dataset.k; render(); }, regst: () => regToStudent(t.dataset.id), delreg: () => confirmDel(t, 'registrations', t.dataset.id),
     mrep: () => openMonthly(t.dataset.sid), mrcopy: () => { const s = sById(t.dataset.sid), r = mrOf(t.dataset.sid, S.month); if (s && r) copyText(monthlyMsg(s, r)); },
     mkup: () => openMakeup(t.dataset.sid), ctlog: () => openContacts(t.dataset.sid), ctdone: () => contactDone(t.dataset.id, t.dataset.sid),
@@ -911,3 +951,10 @@ async function confirmDel(btn, c, id) {
   try { await S.api.del(c, id); toast('حُذف'); await reload(); } catch (x) { fail(x); }
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('overlay').hidden) closeSheet(); });
+// Tab list keyboard pattern (WAI-ARIA): arrows move between tabs, Home/End jump. In RTL the left arrow goes forward.
+$('tabs').addEventListener('keydown', e => {
+  const bs = [...$('tabs').querySelectorAll('[role="tab"]')]; const i = bs.indexOf(document.activeElement); if (i < 0) return;
+  const rtl = getComputedStyle($('tabs')).direction === 'rtl';
+  const j = e.key === 'Home' ? 0 : e.key === 'End' ? bs.length - 1 : e.key === (rtl ? 'ArrowLeft' : 'ArrowRight') ? (i + 1) % bs.length : e.key === (rtl ? 'ArrowRight' : 'ArrowLeft') ? (i - 1 + bs.length) % bs.length : -1;
+  if (j < 0) return; e.preventDefault(); S.tab = bs[j].dataset.tab; render(); $('tab-' + S.tab).focus();
+});

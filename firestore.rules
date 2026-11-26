@@ -1,0 +1,178 @@
+rules_version = '2';
+// Silah portal — PROPOSED rules (WEB-4D phase 02, final audit 2026-11-26). Not deployed.
+// Written from the access pattern in app.js/data.js and tested in the Firestore emulator
+// (tests/rules.test.mjs). Compare with the rules live in Firebase Console before deploying.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- identity ----------
+    function ownerEmail() { return 'rattelquran476@gmail.com'; }          // keep equal to config.js ownerEmail
+    function signedIn() { return request.auth != null; }
+    function email() { return request.auth.token.email.lower(); }
+    function verified() { return signedIn() && request.auth.token.email_verified == true; }
+    function prof() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function hasProf() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function role() { return hasProf() ? prof().role : ''; }
+    function isAdmin() { return role() == 'admin'; }
+    function isSup() { return role() in ['admin', 'supervisor']; }
+    function isAcc() { return role() in ['admin', 'accountant']; }
+    function isStaff() { return role() in ['admin', 'supervisor', 'accountant']; }
+    function isTeacher() { return role() == 'teacher'; }
+    function isParent() { return role() == 'parent'; }
+    function myTeacherId() { return prof().teacherId; }
+    function myKids() { return prof().studentIds; }
+
+    // a teacher may touch a document only when it is stamped with her teacherId, before and after
+    function teacherOwnsNew() { return isTeacher() && myTeacherId() != '' && request.resource.data.teacherId == myTeacherId(); }
+    function teacherOwnsOld() { return isTeacher() && myTeacherId() != '' && resource.data.teacherId == myTeacherId(); }
+    function parentOf(sid) { return isParent() && sid in myKids(); }
+    function studentOfTeacher(sid) {
+      return isTeacher() && get(/databases/$(database)/documents/students/$(sid)).data.teacherId == myTeacherId();
+    }
+    // a teacher's attendance record: known status, id = date_studentId, and studentId/date never change on update
+    function teacherAttendanceOk(id) {
+      return request.resource.data.status in ['present', 'late', 'absent', 'excused', 'tabsent', 'resched']
+        && request.resource.data.date is string && id == request.resource.data.date + '_' + request.resource.data.studentId
+        && (resource == null || (resource.data.studentId == request.resource.data.studentId && resource.data.date == request.resource.data.date))
+        && day(request.resource.data.date) && request.resource.data.month == request.resource.data.date[0:7]
+        && !payLocked(request.resource.data.date[0:7])
+        && (resource == null || teacherOldOpen());
+    }
+    // D-17: once the accountant approves a teacher's payroll for a month, that month is closed for the teacher.
+    // Admin and supervisor may still correct it; the approved total is never recomputed by itself (the accounts
+    // tab shows «تغيّر بعد الاعتماد» and the difference until someone re-approves).
+    function payLocked(m) {
+      return exists(/databases/$(database)/documents/payroll/$(m + '_' + myTeacherId()))
+        && get(/databases/$(database)/documents/payroll/$(m + '_' + myTeacherId())).data.status == 'approved';
+    }
+    // the record being changed or deleted must not count toward a closed month, by either its month or its date
+    function teacherOldOpen() {
+      return !payLocked(resource.data.get('month', '')) && !(resource.data.date is string && resource.data.date.size() >= 7 && payLocked(resource.data.date[0:7]));
+    }
+
+    // ---------- money: shape checks for the accountant (the admin is exempt so a backup can always be restored) ----------
+    function cur(v) { return v in ['EGP', 'USD', 'SAR', 'AED', 'EUR', 'TRY', 'KWD', 'QAR', 'GBP']; }
+    function amt(v) { return v is number && v > -10000000 && v < 10000000; }       // negative allowed: refunds and corrections
+    function day(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function mon(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}$'); }
+    function idOk(v) { return v is string && v.size() > 0 && v.size() <= 80; }
+    function d() { return request.resource.data; }
+    function paymentOk() { return idOk(d().studentId) && amt(d().amount) && cur(d().currency) && day(d().date) && mon(d().month); }
+    function expenseOk() { return amt(d().amount) && cur(d().currency) && day(d().date) && mon(d().month) && d().get('category', '') is string; }
+    function payoutOk() { return idOk(d().teacherId) && amt(d().amount) && mon(d().month); }
+    function payAdjOk() { return idOk(d().teacherId) && amt(d().amount) && mon(d().month) && d().kind in ['bonus', 'deduction']; }
+    function payrollOk(id) { return idOk(d().teacherId) && mon(d().month) && id == d().month + '_' + d().teacherId && d().status == 'approved' && amt(d().total); }
+    function billingOk() {
+      return (!('quota' in d()) || d().quota is number) && (!('fee' in d()) || amt(d().fee))
+        && (!('doneBefore' in d()) || d().doneBefore is number) && (!('currency' in d()) || cur(d().currency));
+    }
+    function rateOk() { return (!('hourRate' in d()) || (d().hourRate is number && d().hourRate >= 0)); }
+
+    // ---------- people ----------
+    // First sign-in creates users/{uid} from the invite (or the owner email). The role must match
+    // the invite exactly, so nobody can grant themselves a role.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if verified() && request.auth.uid == uid
+        && request.resource.data.email == email()
+        && (
+          (email() == ownerEmail() && request.resource.data.role == 'admin')
+          || (exists(/databases/$(database)/documents/invites/$(email()))
+              && request.resource.data.role == get(/databases/$(database)/documents/invites/$(email())).data.role
+              && request.resource.data.teacherId == get(/databases/$(database)/documents/invites/$(email())).data.get('teacherId', '')
+              && request.resource.data.studentIds == get(/databases/$(database)/documents/invites/$(email())).data.get('studentIds', []))
+        );
+      allow update, delete: if isAdmin();
+    }
+    match /invites/{em} {
+      allow read: if isAdmin() || (verified() && em == email());
+      allow write: if isAdmin();
+    }
+
+    // ---------- reference data ----------
+    match /teachers/{id} { allow read: if hasProf(); allow write: if isAdmin(); }
+    match /settings/main { allow read: if hasProf(); allow write: if isAdmin(); }
+    match /settings/rates { allow read: if isStaff(); allow write: if isAcc(); }
+    match /settings/{id} { allow read: if isAdmin(); }                     // lets the admin back up the whole collection
+    match /teacherRates/{tid} {
+      allow read: if isAcc() || (isTeacher() && tid == myTeacherId());
+      allow create, update: if isAdmin() || (isAcc() && rateOk());
+      allow delete: if isAcc();
+    }
+
+    // ---------- students ----------
+    match /students/{sid} {
+      allow get: if isStaff() || parentOf(sid) || (isTeacher() && resource.data.teacherId == myTeacherId());
+      allow list: if isStaff() || (isTeacher() && resource.data.teacherId == myTeacherId());
+      allow write: if isSup();
+    }
+    match /billing/{sid} {
+      allow read: if isStaff() || parentOf(sid);
+      allow create, update: if isAdmin() || (isAcc() && billingOk());
+      allow delete: if isAcc();
+    }
+
+    // ---------- teaching ----------
+    match /attendance/{id} {
+      allow read: if isStaff() || teacherOwnsOld() || (isParent() && resource.data.studentId in myKids());
+      allow create, update: if isSup() || (teacherOwnsNew() && studentOfTeacher(request.resource.data.studentId)
+                                           && (resource == null || teacherOwnsOld()) && teacherAttendanceOk(id));
+      allow delete: if isSup() || (teacherOwnsOld() && studentOfTeacher(resource.data.studentId) && teacherOldOpen());
+    }
+    match /reports/{id} {
+      allow read: if isStaff() || teacherOwnsOld() || (isParent() && resource.data.studentId in myKids());
+      allow create, update: if isSup() || (teacherOwnsNew() && studentOfTeacher(request.resource.data.studentId)
+                                           && (resource == null || teacherOwnsOld()));
+      allow delete: if isSup();
+    }
+    match /monthlyReports/{id} {
+      allow read: if isStaff() || teacherOwnsOld()
+        || (isParent() && resource.data.studentId in myKids() && resource.data.status == 'published');
+      allow create, update: if isSup()
+        || (teacherOwnsNew() && studentOfTeacher(request.resource.data.studentId)
+            && request.resource.data.status in ['draft', 'submitted']
+            && (resource == null || (teacherOwnsOld() && resource.data.status != 'published')));
+      allow delete: if isSup();
+    }
+    match /makeups/{id} {
+      allow read: if isStaff() || teacherOwnsOld() || (isParent() && resource.data.studentId in myKids());
+      allow create, update: if isSup() || (teacherOwnsNew() && studentOfTeacher(request.resource.data.studentId)
+                                           && (resource == null || teacherOwnsOld()));
+      allow delete: if isSup() || (teacherOwnsOld() && studentOfTeacher(resource.data.studentId));
+    }
+    match /contacts/{id} { allow read, create, update: if isStaff(); allow delete: if isSup(); }
+
+    // ---------- money ----------
+    match /payments/{id} {
+      allow read: if isAcc() || (isParent() && resource.data.studentId in myKids());
+      allow create, update: if isAdmin() || (isAcc() && paymentOk());
+      allow delete: if isAcc();
+    }
+    match /expenses/{id} { allow read, delete: if isAcc(); allow create, update: if isAdmin() || (isAcc() && expenseOk()); }
+    match /payouts/{id} { allow read: if isAcc() || teacherOwnsOld(); allow delete: if isAcc(); allow create, update: if isAdmin() || (isAcc() && payoutOk()); }
+    match /payAdj/{id} { allow read: if isAcc() || teacherOwnsOld(); allow delete: if isAcc(); allow create, update: if isAdmin() || (isAcc() && payAdjOk()); }
+    match /payroll/{id} { allow read: if isAcc() || teacherOwnsOld(); allow delete: if isAcc(); allow create, update: if isAdmin() || (isAcc() && payrollOk(id)); }
+
+    // ---------- public trial-lesson form ----------
+    match /registrations/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['parentName', 'studentName', 'studentAge', 'country', 'whatsapp', 'course', 'preferredTime', 'notes', 'status', 'source', 'at'])
+        && request.resource.data.keys().hasAll(['parentName', 'studentName', 'studentAge', 'country', 'whatsapp', 'course', 'preferredTime', 'status', 'source', 'at'])
+        && request.resource.data.parentName is string && request.resource.data.parentName.size() > 0 && request.resource.data.parentName.size() <= 80
+        && request.resource.data.studentName is string && request.resource.data.studentName.size() > 0 && request.resource.data.studentName.size() <= 80
+        && request.resource.data.studentAge is int && request.resource.data.studentAge >= 4 && request.resource.data.studentAge <= 18
+        && request.resource.data.country is string && request.resource.data.country.size() > 0 && request.resource.data.country.size() <= 60
+        && request.resource.data.whatsapp is string && request.resource.data.whatsapp.matches('^[+0-9 ()-]{8,24}$')
+        && request.resource.data.course in ['quran', 'tajweed', 'arabic']
+        && request.resource.data.preferredTime in ['morning', 'noon', 'evening', 'night']
+        && request.resource.data.get('notes', '') is string && request.resource.data.get('notes', '').size() <= 600
+        && request.resource.data.status == 'new' && request.resource.data.source == 'site'
+        && request.resource.data.at is int
+        && request.resource.data.at >= 1704067200000 && request.resource.data.at <= request.time.toMillis() + 172800000;  // 2024-01-01 .. now + 2 days
+      allow read, update: if isSup();
+      allow delete: if isAdmin();
+    }
+
+    // anything not listed above is closed
+    match /{document=**} { allow read, write: if false; }
+  }
+}

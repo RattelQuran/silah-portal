@@ -1,0 +1,36 @@
+/* C · «السكينة» — quiet and typographic: white on warm white, hairline gold rules, sage for good news, colour only where it means something */
+:root{--paper:#FCFAF6;--sheet:#FFFFFF;--line:#ECE6DA;--sky:#EEF2F8;--ok:#2E7D5B;--shadow:none}
+body{background:var(--paper)}
+.top{background:var(--paper);box-shadow:none;border-bottom:1px solid var(--line)}
+.logo b{color:var(--navy-deep)}
+.tabs button{color:var(--muted);font-weight:500;border-bottom:1px solid transparent}
+.tabs button[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom:1.5px solid var(--gold)}
+.tabs .cnt{background:transparent;color:var(--crimson);box-shadow:inset 0 0 0 1.5px var(--crimson)}
+main{padding-top:28px}
+main>.bar:first-child h1{color:var(--ink);font-size:2rem;font-weight:700}
+.kpis{gap:28px;margin-bottom:28px}
+.kpi{background:transparent;box-shadow:none;border-radius:0;padding:0 0 12px;border-bottom:1px solid var(--line)}
+.kpi small{color:var(--muted);font-weight:500}
+.kpi b{color:var(--ink);font-size:2.1rem;font-weight:700}
+.kpi.ok b{color:var(--ok)} .kpi.red b{color:var(--crimson)}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:14px;padding:20px}
+.panel h2{color:var(--ink);font-weight:700}
+th{background:transparent;color:var(--muted);font-weight:500;border-bottom:1px solid var(--ink)}
+td{border-bottom-color:var(--line)}
+.card{border:1px solid var(--line);border-inline-start:3px solid var(--line);border-radius:12px;box-shadow:none}
+.btn{border-radius:999px;font-weight:600}.btn.blue{background:var(--ink)}.btn.red{background:var(--crimson)}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--ink)}
+.nav{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.chip{background:transparent!important;box-shadow:inset 0 0 0 1px currentColor;font-weight:500}
+.chip.ok{color:var(--ok)}
+.alert{background:transparent;border-inline-start:2px solid var(--line);border-radius:0;padding-inline-start:14px}
+.alert.red{border-inline-start-color:var(--crimson)}.alert.amber{border-inline-start-color:var(--gold)}
+.mark{background:#fff;border-color:var(--line);font-weight:600}
+.mark[aria-pressed="true"].ok{background:var(--ok);border-color:var(--ok)}
+input,select,textarea{background:#fff;border:1px solid var(--line)}
+.demo{background:var(--ink)}
+.login{background:transparent;box-shadow:none;border:1px solid var(--line)}
+.login img{mix-blend-mode:normal}
+.login h1{font-size:2rem;color:var(--ink)}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:22px}
+.alert.red,.alert.amber{background:transparent}
