@@ -5,7 +5,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { serve, browser, route, watch, ROLE_TABS, tabNames } from './helpers.mjs';
 
 const P = 'demo-silah', AUTH = 'http://127.0.0.1:9099';
@@ -54,6 +54,7 @@ async function signIn(role) {
   await page.waitForSelector('#tabs [role="tab"]', { timeout: 20000 });
   return { ctx, page, log };
 }
+const docRef = (c, col, id) => doc(c.firestore(), col, id);
 const denied = log => [...log.errors, ...log.warnings].filter(m => /permission|insufficient/i.test(m));
 
 for (const role of Object.keys(people)) test(`${role}: signs in from the invite and loads every tab with no permission error`, async () => {
@@ -78,6 +79,30 @@ test('teacher: marking attendance is saved through the rules', async () => {
   await ctx.close();
 });
 
+test('D-17: after payroll approval the teacher sees «closed» and cannot change the month; a supervisor fix is shown to accounts', async () => {
+  const pr = data => env.withSecurityRulesDisabled(async c => data ? setDoc(docRef(c, 'payroll', '2026-11_sara'), data) : deleteDoc(docRef(c, 'payroll', '2026-11_sara')));
+  await pr({ teacherId: 'sara', month: '2026-11', status: 'approved', total: 0, approvedAt: 1, by: 'u-acc' });
+  try {
+    const t = await signIn('teacher');
+    assert.ok((await t.page.locator('#main').innerText()).includes('مغلق ماليًا'), 'no closed-month notice');
+    await t.page.locator('.card [data-act="mark"][data-st="late"]').first().click();
+    await t.page.waitForFunction(() => document.querySelector('#toast').textContent.includes('مغلق ماليًا'));
+    let saved; await env.withSecurityRulesDisabled(async c => { saved = (await getDoc(docRef(c, 'attendance', '2026-11-25_yusuf'))).data(); });
+    assert.equal(saved.status, 'present', 'the closed month changed');
+    assert.deepEqual(denied(t.log), []); await t.ctx.close();
+    const s = await signIn('supervisor');
+    const yc = s.page.locator('.card', { hasText: 'يوسف-اختبار' }).first();
+    await yc.locator('[data-act="mark"][data-st="excused"]').click();
+    await s.page.waitForFunction(() => [...document.querySelectorAll('.card')].find(c => c.innerText.includes('يوسف-اختبار')).querySelector('[data-st="excused"]').getAttribute('aria-pressed') === 'true');
+    assert.deepEqual(denied(s.log), []); await s.ctx.close();
+    const a = await signIn('accountant');
+    await a.page.locator('#tabs [role="tab"]', { hasText: 'الحسابات' }).click();
+    await a.page.waitForFunction(() => document.querySelector('#main').innerText.includes('تعديل حضور بعد الاعتماد'));
+    let p; await env.withSecurityRulesDisabled(async c => { p = (await getDoc(docRef(c, 'payroll', '2026-11_sara'))).data(); });
+    assert.equal(p.total, 0, 'the approved payroll changed by itself');
+    await a.ctx.close();
+  } finally { await pr(null); }
+});
 test('profiles were created with exactly the invited roles', async () => {
   await env.withSecurityRulesDisabled(async c => {
     const db = c.firestore();

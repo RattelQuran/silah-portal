@@ -38,3 +38,30 @@ export function planImport(ops, existing) {
   for (const o of ops) { const r = byCol[o.c] || (byCol[o.c] = { total: 0, fresh: 0, clash: 0 }); r.total++; (existing[o.c] && existing[o.c].has(o.id)) ? r.clash++ : r.fresh++; }
   return byCol;
 }
+/** Records whose shape the app would misread (the admin is exempt from the money checks in the rules, so a restore
+ *  is checked here instead). Returns [{ c, id, why }]; an empty list means the file looks sound. Nothing is dropped. */
+const CURS = ['EGP', 'USD', 'SAR', 'AED', 'EUR', 'TRY', 'KWD', 'QAR', 'GBP'];
+const STS = ['present', 'late', 'absent', 'excused', 'tabsent', 'resched'];
+const num = v => typeof v === 'number' && Number.isFinite(v);
+const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v), isMon = v => typeof v === 'string' && /^\d{4}-\d{2}$/.test(v);
+export function checkOps(ops) {
+  const out = [], bad = (o, why) => out.push({ c: o.c, id: o.id, why });
+  for (const o of ops) {
+    const d = o.data || {};
+    if (['payments', 'expenses'].includes(o.c)) {
+      if (!num(d.amount)) bad(o, 'المبلغ ليس رقمًا'); else if (!CURS.includes(d.currency)) bad(o, 'عملة غير معروفة');
+      else if (!isDay(d.date) || !isMon(d.month)) bad(o, 'تاريخ غير صالح');
+    } else if (['payouts', 'payAdj'].includes(o.c)) {
+      if (!num(d.amount)) bad(o, 'المبلغ ليس رقمًا'); else if (!isMon(d.month)) bad(o, 'شهر غير صالح');
+      else if (o.c === 'payAdj' && !['bonus', 'deduction'].includes(d.kind)) bad(o, 'نوع غير معروف');
+    } else if (o.c === 'payroll') {
+      if (!num(d.total) || d.status !== 'approved' || o.id !== d.month + '_' + d.teacherId) bad(o, 'اعتماد راتب غير صالح');
+    } else if (o.c === 'attendance') {
+      if (!STS.includes(d.status)) bad(o, 'حالة حضور غير معروفة');
+      else if (!isDay(d.date) || o.id !== d.date + '_' + d.studentId || (d.month != null && d.month !== d.date.slice(0, 7))) bad(o, 'تاريخ أو معرّف لا يتطابق');
+    } else if (o.c === 'billing') {
+      if ((d.fee != null && !num(d.fee)) || (d.quota != null && !num(d.quota)) || (d.currency && !CURS.includes(d.currency))) bad(o, 'باقة بأرقام أو عملة غير صالحة');
+    }
+  }
+  return out;
+}
