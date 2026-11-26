@@ -1,5 +1,5 @@
 rules_version = '2';
-// Silah portal — PROPOSED rules (WEB-4D phase 02). Not deployed.
+// Silah portal — PROPOSED rules (WEB-4D phase 02, final audit 2026-11-26). Not deployed.
 // Written from the access pattern in app.js/data.js and tested in the Firestore emulator
 // (tests/rules.test.mjs). Compare with the rules live in Firebase Console before deploying.
 service cloud.firestore {
@@ -29,6 +29,30 @@ service cloud.firestore {
     function studentOfTeacher(sid) {
       return isTeacher() && get(/databases/$(database)/documents/students/$(sid)).data.teacherId == myTeacherId();
     }
+    // a teacher's attendance record: known status, id = date_studentId, and studentId/date never change on update
+    function teacherAttendanceOk(id) {
+      return request.resource.data.status in ['present', 'late', 'absent', 'excused', 'tabsent', 'resched']
+        && request.resource.data.date is string && id == request.resource.data.date + '_' + request.resource.data.studentId
+        && (resource == null || (resource.data.studentId == request.resource.data.studentId && resource.data.date == request.resource.data.date));
+    }
+
+    // ---------- money: shape checks for the accountant (the admin is exempt so a backup can always be restored) ----------
+    function cur(v) { return v in ['EGP', 'USD', 'SAR', 'AED', 'EUR', 'TRY', 'KWD', 'QAR', 'GBP']; }
+    function amt(v) { return v is number && v > -10000000 && v < 10000000; }       // negative allowed: refunds and corrections
+    function day(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function mon(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}$'); }
+    function idOk(v) { return v is string && v.size() > 0 && v.size() <= 80; }
+    function d() { return request.resource.data; }
+    function paymentOk() { return idOk(d().studentId) && amt(d().amount) && cur(d().currency) && day(d().date) && mon(d().month); }
+    function expenseOk() { return amt(d().amount) && cur(d().currency) && day(d().date) && mon(d().month) && d().get('category', '') is string; }
+    function payoutOk() { return idOk(d().teacherId) && amt(d().amount) && mon(d().month); }
+    function payAdjOk() { return idOk(d().teacherId) && amt(d().amount) && mon(d().month) && d().kind in ['bonus', 'deduction']; }
+    function payrollOk(id) { return idOk(d().teacherId) && mon(d().month) && id == d().month + '_' + d().teacherId && d().status == 'approved' && amt(d().total); }
+    function billingOk() {
+      return (!('quota' in d()) || d().quota is number) && (!('fee' in d()) || amt(d().fee))
+        && (!('doneBefore' in d()) || d().doneBefore is number) && (!('currency' in d()) || cur(d().currency));
+    }
+    function rateOk() { return (!('hourRate' in d()) || (d().hourRate is number && d().hourRate >= 0)); }
 
     // ---------- people ----------
     // First sign-in creates users/{uid} from the invite (or the owner email). The role must match
@@ -58,7 +82,8 @@ service cloud.firestore {
     match /settings/{id} { allow read: if isAdmin(); }                     // lets the admin back up the whole collection
     match /teacherRates/{tid} {
       allow read: if isAcc() || (isTeacher() && tid == myTeacherId());
-      allow write: if isAdmin() || isAcc();
+      allow create, update: if isAdmin() || (isAcc() && rateOk());
+      allow delete: if isAcc();
     }
 
     // ---------- students ----------
@@ -69,15 +94,16 @@ service cloud.firestore {
     }
     match /billing/{sid} {
       allow read: if isStaff() || parentOf(sid);
-      allow write: if isAcc();
+      allow create, update: if isAdmin() || (isAcc() && billingOk());
+      allow delete: if isAcc();
     }
 
     // ---------- teaching ----------
     match /attendance/{id} {
       allow read: if isStaff() || teacherOwnsOld() || (isParent() && resource.data.studentId in myKids());
       allow create, update: if isSup() || (teacherOwnsNew() && studentOfTeacher(request.resource.data.studentId)
-                                           && (resource == null || teacherOwnsOld()));
-      allow delete: if isSup() || teacherOwnsOld();
+                                           && (resource == null || teacherOwnsOld()) && teacherAttendanceOk(id));
+      allow delete: if isSup() || (teacherOwnsOld() && studentOfTeacher(resource.data.studentId));
     }
     match /reports/{id} {
       allow read: if isStaff() || teacherOwnsOld() || (isParent() && resource.data.studentId in myKids());
@@ -98,19 +124,20 @@ service cloud.firestore {
       allow read: if isStaff() || teacherOwnsOld() || (isParent() && resource.data.studentId in myKids());
       allow create, update: if isSup() || (teacherOwnsNew() && studentOfTeacher(request.resource.data.studentId)
                                            && (resource == null || teacherOwnsOld()));
-      allow delete: if isSup() || teacherOwnsOld();
+      allow delete: if isSup() || (teacherOwnsOld() && studentOfTeacher(resource.data.studentId));
     }
     match /contacts/{id} { allow read, create, update: if isStaff(); allow delete: if isSup(); }
 
     // ---------- money ----------
     match /payments/{id} {
       allow read: if isAcc() || (isParent() && resource.data.studentId in myKids());
-      allow write: if isAcc();
+      allow create, update: if isAdmin() || (isAcc() && paymentOk());
+      allow delete: if isAcc();
     }
-    match /expenses/{id} { allow read, write: if isAcc(); }
-    match /payouts/{id} { allow read: if isAcc() || teacherOwnsOld(); allow write: if isAcc(); }
-    match /payAdj/{id} { allow read: if isAcc() || teacherOwnsOld(); allow write: if isAcc(); }
-    match /payroll/{id} { allow read: if isAcc() || teacherOwnsOld(); allow write: if isAcc(); }
+    match /expenses/{id} { allow read, delete: if isAcc(); allow create, update: if isAdmin() || (isAcc() && expenseOk()); }
+    match /payouts/{id} { allow read: if isAcc() || teacherOwnsOld(); allow delete: if isAcc(); allow create, update: if isAdmin() || (isAcc() && payoutOk()); }
+    match /payAdj/{id} { allow read: if isAcc() || teacherOwnsOld(); allow delete: if isAcc(); allow create, update: if isAdmin() || (isAcc() && payAdjOk()); }
+    match /payroll/{id} { allow read: if isAcc() || teacherOwnsOld(); allow delete: if isAcc(); allow create, update: if isAdmin() || (isAcc() && payrollOk(id)); }
 
     // ---------- public trial-lesson form ----------
     match /registrations/{id} {
@@ -125,7 +152,8 @@ service cloud.firestore {
         && request.resource.data.preferredTime in ['morning', 'noon', 'evening', 'night']
         && request.resource.data.get('notes', '') is string && request.resource.data.get('notes', '').size() <= 600
         && request.resource.data.status == 'new' && request.resource.data.source == 'site'
-        && request.resource.data.at is int;
+        && request.resource.data.at is int
+        && request.resource.data.at >= 1704067200000 && request.resource.data.at <= request.time.toMillis() + 172800000;  // 2024-01-01 .. now + 2 days
       allow read, update: if isSup();
       allow delete: if isAdmin();
     }
