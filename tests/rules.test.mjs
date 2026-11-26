@@ -1,6 +1,7 @@
 // Firestore rules tests. Run with: npm run rules   (starts the emulator, project demo-silah, no production access)
 import { test, before, after, beforeEach } from 'node:test';
 import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 
@@ -94,7 +95,7 @@ test('a teacher sees only her own students and records', async () => {
 });
 test('a teacher marks attendance only for her own students', async () => {
   const db = as('sara');
-  await assertSucceeds(setDoc(doc(db, 'attendance', '2026-11-02_yusuf'), { studentId: 'yusuf', teacherId: 'sara', date: '2026-11-02', status: 'late' }));
+  await assertSucceeds(setDoc(doc(db, 'attendance', '2026-11-02_yusuf'), { studentId: 'yusuf', teacherId: 'sara', date: '2026-11-02', month: '2026-11', status: 'late' }));   // the shape the app writes
   await assertFails(setDoc(doc(db, 'attendance', '2026-11-02_adam'), { studentId: 'adam', teacherId: 'sara', date: '2026-11-02', status: 'absent' }));
   await assertFails(setDoc(doc(db, 'attendance', '2026-11-01_adam'), { studentId: 'adam', teacherId: 'omar', status: 'absent' }));
   await assertFails(deleteDoc(doc(db, 'attendance', '2026-11-01_adam')));
@@ -248,4 +249,52 @@ test('the public form cannot read, edit or delete registrations', async () => {
 });
 test('collections not in the app are closed', async () => {
   await assertFails(setDoc(doc(as('admin'), 'secrets', 'x'), { a: 1 }));
+});
+
+/* ---- D-17 (owner decision 2026-11-26): attendance is closed for the teacher once that month's payroll is approved ---- */
+const att = (over = {}) => ({ studentId: 'yusuf', teacherId: 'sara', date: '2026-09-11', month: '2026-09', status: 'present', at: 1, by: 'u-sara', ...over });
+const seedAtt = (...recs) => env.withSecurityRulesDisabled(async c => { const db = c.firestore(); for (const r of recs) await setDoc(doc(db, 'attendance', r.date + '_' + r.studentId), r); });
+const approve = (m = '2026-09', tid = 'sara') => setDoc(doc(as('acc'), 'payroll', m + '_' + tid), { teacherId: tid, month: m, status: 'approved', total: 100, approvedAt: 2, by: 'u-acc' });
+
+test('D-17: before payroll approval the teacher marks, edits and deletes freely', async () => {
+  const db = as('sara');
+  await assertSucceeds(setDoc(doc(db, 'attendance', '2026-09-11_yusuf'), att()));
+  await assertSucceeds(setDoc(doc(db, 'attendance', '2026-09-11_yusuf'), att({ status: 'late' })));
+  await assertSucceeds(deleteDoc(doc(db, 'attendance', '2026-09-11_yusuf')));
+});
+test('D-17: after approval the teacher cannot add, edit or delete in that month, nor dodge the lock', async () => {
+  await seedAtt(att(), att({ date: '2026-10-03', month: '2026-09' }));   // the second: a legacy record counted in September
+  await assertSucceeds(approve());
+  const db = as('sara');
+  await assertFails(setDoc(doc(db, 'attendance', '2026-09-11_yusuf'), att({ status: 'absent' })));   // edit
+  await assertFails(deleteDoc(doc(db, 'attendance', '2026-09-11_yusuf')));                               // delete
+  await assertFails(setDoc(doc(db, 'attendance', '2026-09-20_yusuf'), att({ date: '2026-09-20' })));   // add
+  // dodges: dated in an open month but counted in the closed one, an id that disagrees with the date, no month at all
+  await assertFails(setDoc(doc(db, 'attendance', '2026-10-01_yusuf'), att({ date: '2026-10-01', month: '2026-09' })));
+  await assertFails(setDoc(doc(db, 'attendance', '2026-09-21_yusuf'), att({ date: '2026-10-21', month: '2026-10' })));
+  const { month, ...noMonth } = att({ date: '2026-10-02' });
+  await assertFails(setDoc(doc(db, 'attendance', '2026-10-02_yusuf'), noMonth));
+  await assertFails(deleteDoc(doc(db, 'attendance', '2026-10-03_yusuf')));                               // the legacy record
+  await assertFails(setDoc(doc(db, 'attendance', '2026-10-03_yusuf'), att({ date: '2026-10-03', month: '2026-10' })));
+  await assertSucceeds(getDoc(doc(db, 'attendance', '2026-09-11_yusuf')));                               // she still reads it
+});
+test('D-17: other months and other teachers stay open, and un-approving reopens the month', async () => {
+  await env.withSecurityRulesDisabled(async c => setDoc(doc(c.firestore(), 'students', 'lina'), { name: 'لينا', teacherId: 'omar' }));
+  await seedAtt(att());
+  await assertSucceeds(approve());
+  await assertSucceeds(setDoc(doc(as('sara'), 'attendance', '2026-10-10_yusuf'), att({ date: '2026-10-10', month: '2026-10' })));
+  await assertSucceeds(setDoc(doc(as('sara'), 'attendance', '2026-08-31_yusuf'), att({ date: '2026-08-31', month: '2026-08' })));
+  await assertSucceeds(setDoc(doc(as('omar'), 'attendance', '2026-09-15_lina'), att({ studentId: 'lina', teacherId: 'omar', date: '2026-09-15', by: 'u-omar' })));
+  await assertSucceeds(deleteDoc(doc(as('acc'), 'payroll', '2026-09_sara')));
+  await assertSucceeds(setDoc(doc(as('sara'), 'attendance', '2026-09-11_yusuf'), att({ status: 'late' })));
+});
+test('D-17: the supervisor and the admin can still correct a closed month, and the approved payroll is left as it was', async () => {
+  await seedAtt(att());
+  await assertSucceeds(approve());
+  await assertSucceeds(setDoc(doc(as('sup'), 'attendance', '2026-09-11_yusuf'), att({ status: 'excused', by: 'u-sup' })));
+  await assertSucceeds(setDoc(doc(as('admin'), 'attendance', '2026-09-12_yusuf'), att({ date: '2026-09-12', by: 'u-admin' })));
+  await assertSucceeds(deleteDoc(doc(as('sup'), 'attendance', '2026-09-12_yusuf')));
+  await assertFails(setDoc(doc(as('sup'), 'payroll', '2026-09_sara'), { teacherId: 'sara', month: '2026-09', status: 'approved', total: 1 }));
+  let p; await env.withSecurityRulesDisabled(async c => { p = (await getDoc(doc(c.firestore(), 'payroll', '2026-09_sara'))).data(); });
+  assert.equal(p.total, 100);
 });

@@ -159,6 +159,19 @@ test('restore adds new records, keeps existing ones unless replace is ticked, an
   await ctx.close();
 });
 
+test('restore warns about malformed money records and imports them only after the admin confirms', async () => {
+  const { ctx, page } = await open('admin');
+  await page.click('#tab-people');
+  const file = { format: 'silah-backup', version: 1, collections: { payments: [{ id: 'bad-pay', studentId: 'yusuf', amount: '600', currency: 'TRY', date: '2026-11-03', month: '2026-11' }] } };
+  const p = new URL('./out/restore-bad.json', import.meta.url); await writeFile(p, JSON.stringify(file));
+  await page.setInputFiles('#impFile', p.pathname);
+  await page.waitForSelector('#impAck');
+  assert.match(await page.locator('#impPrev').innerText(), /تحذير: 1 سجلًا بشكل غير سليم[\s\S]*المبلغ ليس رقمًا/);
+  await page.click('#impBtn'); await page.waitForFunction(() => document.querySelector('#toast').textContent.includes('غير سليمة'));
+  await page.check('#impAck'); await page.click('#impBtn');
+  await page.waitForFunction(() => document.querySelector('#toast').textContent.includes('نُقلت 1'));
+  await ctx.close();
+});
 test('import rejects files that are not Silah backups or Rattel exports', async () => {
   const { ctx, page } = await open('admin');
   await page.click('#tab-people');
