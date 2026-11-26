@@ -33,7 +33,21 @@ service cloud.firestore {
     function teacherAttendanceOk(id) {
       return request.resource.data.status in ['present', 'late', 'absent', 'excused', 'tabsent', 'resched']
         && request.resource.data.date is string && id == request.resource.data.date + '_' + request.resource.data.studentId
-        && (resource == null || (resource.data.studentId == request.resource.data.studentId && resource.data.date == request.resource.data.date));
+        && (resource == null || (resource.data.studentId == request.resource.data.studentId && resource.data.date == request.resource.data.date))
+        && day(request.resource.data.date) && request.resource.data.month == request.resource.data.date[0:7]
+        && !payLocked(request.resource.data.date[0:7])
+        && (resource == null || teacherOldOpen());
+    }
+    // D-17: once the accountant approves a teacher's payroll for a month, that month is closed for the teacher.
+    // Admin and supervisor may still correct it; the approved total is never recomputed by itself (the accounts
+    // tab shows «تغيّر بعد الاعتماد» and the difference until someone re-approves).
+    function payLocked(m) {
+      return exists(/databases/$(database)/documents/payroll/$(m + '_' + myTeacherId()))
+        && get(/databases/$(database)/documents/payroll/$(m + '_' + myTeacherId())).data.status == 'approved';
+    }
+    // the record being changed or deleted must not count toward a closed month, by either its month or its date
+    function teacherOldOpen() {
+      return !payLocked(resource.data.get('month', '')) && !(resource.data.date is string && resource.data.date.size() >= 7 && payLocked(resource.data.date[0:7]));
     }
 
     // ---------- money: shape checks for the accountant (the admin is exempt so a backup can always be restored) ----------
@@ -103,7 +117,7 @@ service cloud.firestore {
       allow read: if isStaff() || teacherOwnsOld() || (isParent() && resource.data.studentId in myKids());
       allow create, update: if isSup() || (teacherOwnsNew() && studentOfTeacher(request.resource.data.studentId)
                                            && (resource == null || teacherOwnsOld()) && teacherAttendanceOk(id));
-      allow delete: if isSup() || (teacherOwnsOld() && studentOfTeacher(resource.data.studentId));
+      allow delete: if isSup() || (teacherOwnsOld() && studentOfTeacher(resource.data.studentId) && teacherOldOpen());
     }
     match /reports/{id} {
       allow read: if isStaff() || teacherOwnsOld() || (isParent() && resource.data.studentId in myKids());

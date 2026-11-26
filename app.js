@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 import { initData } from './data.js';
 import * as U from './util.js';
-import { BACKUP_COLS, COL_AR, opsFromFile, planImport } from './backup.js';
+import { BACKUP_COLS, COL_AR, opsFromFile, planImport, checkOps } from './backup.js';
 const { esc, fmtN, fmtDate, fmtDay, fmtTime, ST, ST_KEYS, COUNTED, DAYS, DAY_ORDER } = U;
 
 const ACAD_TZ = U.ACAD_TZ;
@@ -15,6 +15,10 @@ function emptyData() { return { teachers: {}, students: [], billing: {}, att: []
 /* ---------------- boot & auth ---------------- */
 let toastT;
 function toast(m) { const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+// D-17: a month whose payroll is approved is closed for the teacher (enforced in firestore.rules; this only explains it)
+const CLOSED_MSG = 'هذا الشهر مغلق ماليًا: اعتُمد راتبه. اطلب أي تصحيح من المشرف أو المدير.';
+const payClosed = (tid, m) => !!tid && D.payroll.some(p => p.teacherId === tid && p.month === m && p.status === 'approved');
+const teacherLocked = d => S.prof && S.prof.role === 'teacher' && payClosed(S.prof.teacherId, d.slice(0, 7));
 function fail(e) { console.error(e); const c = e && e.code || ''; toast(c.includes('permission') ? 'لا تملك صلاحية لهذا الإجراء' : 'تعذّر الحفظ. تحقق من الاتصال وحاول مرة أخرى'); }
 
 (async function boot() {
@@ -191,6 +195,7 @@ function sessionCard(o, opts = {}) {
   </article>`;
 }
 async function mark(sid, status) {
+  if (teacherLocked(S.date)) { toast(CLOSED_MSG); return; }
   const id = S.date + '_' + sid; if (S.busy.has(id)) return; S.busy.add(id);
   const s = sById(sid); const cur = D.attMap[id];
   try {
@@ -199,7 +204,7 @@ async function mark(sid, status) {
       const data = { studentId: sid, teacherId: s.teacherId || '', date: S.date, month: S.date.slice(0, 7), status, at: Date.now(), by: S.user.uid };
       await S.api.set('attendance', id, data);
       D.att = D.att.filter(a => !(a.date === S.date && a.studentId === sid)).concat([data]); D.attMap[id] = data;
-      toast(s.name + ': ' + ST[status].l);
+      toast(s.name + ': ' + ST[status].l + (payClosed(s.teacherId, data.month) ? ' · تصحيح بعد اعتماد الراتب: المعتمد لا يتغير، ويظهر الفرق في الحسابات' : ''));
     }
     render();
   } catch (e) { fail(e); } finally { S.busy.delete(id); }
@@ -225,7 +230,7 @@ function openReport(sid) {
     const body = { studentId: sid, teacherId: s.teacherId || '', date: S.date, month: S.date.slice(0, 7), newMem: $('r-new').value.trim(), review: $('r-rev').value.trim(), rating: rt ? rt.value : '', homework: $('r-hw').value.trim(), notes: $('r-notes').value.trim(), at: Date.now(), by: S.user.uid };
     try {
       await S.api.set('reports', id, body);
-      if (!D.attMap[id]) await S.api.set('attendance', id, { studentId: sid, teacherId: s.teacherId || '', date: S.date, month: S.date.slice(0, 7), status: 'present', at: Date.now(), by: S.user.uid });
+      if (!D.attMap[id] && !teacherLocked(S.date)) await S.api.set('attendance', id, { studentId: sid, teacherId: s.teacherId || '', date: S.date, month: S.date.slice(0, 7), status: 'present', at: Date.now(), by: S.user.uid });
       closeSheet(); toast('حُفظ التقرير'); await reload();
     } catch (x) { fail(x); }
   };
@@ -405,7 +410,7 @@ function viewAcc() {
   const due = D.students.map(s => ({ s, p: pkg(s) })).filter(x => x.p && x.p.due).sort((a, b) => (a.p.cls === 'miss' ? 0 : 1) - (b.p.cls === 'miss' ? 0 : 1));
   const pays = D.payments.filter(p => p.month === m).sort((a, b) => b.date.localeCompare(a.date));
   const exps = D.expenses.filter(e => e.month === m).sort((a, b) => b.date.localeCompare(a.date));
-  const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); const left = x.due - x.paid; return `<tr><td><b>${esc(t.name)}</b><div class="chips" style="margin-top:4px">${payStatus(x)}</div></td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.full ? '<span class="note">مبلغ الطالب كاملًا</span>' : x.rate ? fmtN(x.rate) : chip('حدّد الأجر', 'warn')}</td><td class="num">${fmtN(x.base)}</td><td class="num">${x.bonus ? '<span class="pos">+' + fmtN(x.bonus) + '</span>' : ''}${x.bonus && x.deduction ? '<br>' : ''}${x.deduction ? '<span class="neg">−' + fmtN(x.deduction) + '</span>' : ''}${x.bonus || x.deduction ? '' : '<span class="note">—</span>'}</td><td class="num strong">${fmtN(x.due)}</td><td class="num">${fmtN(x.paid)}</td><td class="num strong">${fmtN(left)}</td><td><div class="rowacts"><button class="btn ghost sm" type="button" data-act="adj" data-t="${id}">مكافأة/خصم</button>${x.approved && Math.round(x.due) === Number(x.approved.total) ? `<button class="btn ghost sm" type="button" data-act="payundo" data-t="${id}">إلغاء الاعتماد</button>` : `<button class="btn blue sm" type="button" data-act="payok" data-t="${id}">${x.approved ? 'إعادة الاعتماد' : 'اعتماد'}</button>`}<button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></div></td></tr>`; }).join('');
+  const tRows = Object.entries(D.teachers).map(([id, t]) => { const x = duesOf(id, m); const left = x.due - x.paid; return `<tr><td><b>${esc(t.name)}</b><div class="chips" style="margin-top:4px">${payStatus(x)}</div>${afterPay(id, m, x)}</td><td class="num">${x.sessions}</td><td class="num">${x.hours.toFixed(1)}</td><td class="num">${x.full ? '<span class="note">مبلغ الطالب كاملًا</span>' : x.rate ? fmtN(x.rate) : chip('حدّد الأجر', 'warn')}</td><td class="num">${fmtN(x.base)}</td><td class="num">${x.bonus ? '<span class="pos">+' + fmtN(x.bonus) + '</span>' : ''}${x.bonus && x.deduction ? '<br>' : ''}${x.deduction ? '<span class="neg">−' + fmtN(x.deduction) + '</span>' : ''}${x.bonus || x.deduction ? '' : '<span class="note">—</span>'}</td><td class="num strong">${fmtN(x.due)}</td><td class="num">${fmtN(x.paid)}</td><td class="num strong">${fmtN(left)}</td><td><div class="rowacts"><button class="btn ghost sm" type="button" data-act="adj" data-t="${id}">مكافأة/خصم</button>${x.approved && Math.round(x.due) === Number(x.approved.total) ? `<button class="btn ghost sm" type="button" data-act="payundo" data-t="${id}">إلغاء الاعتماد</button>` : `<button class="btn blue sm" type="button" data-act="payok" data-t="${id}">${x.approved ? 'إعادة الاعتماد' : 'اعتماد'}</button>`}<button class="btn ghost sm" type="button" data-act="payout" data-t="${id}">تسجيل صرف</button></div></td></tr>`; }).join('');
   const rnCount = g => due.filter(({ s }) => rnGroup(renewalOf(D.billing[s.id]).status) === g).length;
   const shown = rf === 'all' ? due : due.filter(({ s }) => rnGroup(renewalOf(D.billing[s.id]).status) === rf);
   const op = x => `<span class="op" aria-hidden="true">${x}</span>`;
@@ -705,10 +710,12 @@ async function onImportFile(f) {
   if (!r.ops.length) { info.textContent = 'الملف لا يحتوي أي سجل صالح.'; return; }
   const existing = {};
   try { for (const c of new Set(r.ops.map(o => o.c))) existing[c] = new Set((await S.api.list(c)).map(x => x.id)); } catch (x) { fail(x); info.textContent = ''; return; }
-  imp = { ...r, existing, plan: planImport(r.ops, existing) };
+  imp = { ...r, existing, plan: planImport(r.ops, existing), issues: checkOps(r.ops) };
   const rows = Object.entries(imp.plan).map(([c, x]) => `<tr><td>${esc(COL_AR[c] || c)}</td><td class="num">${fmtN(x.total)}</td><td class="num">${fmtN(x.fresh)}</td><td class="num">${x.clash ? `<b style="color:var(--crimson)">${fmtN(x.clash)}</b>` : '0'}</td></tr>`).join('');
   const clash = Object.values(imp.plan).reduce((a, x) => a + x.clash, 0), fresh = Object.values(imp.plan).reduce((a, x) => a + x.fresh, 0);
   $('impPrev').innerHTML = `<div class="tscroll"><table><thead><tr><th>البيانات</th><th class="num">في الملف</th><th class="num">جديد</th><th class="num">موجود مسبقًا</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${imp.issues.length ? `<div class="alert red" role="alert" style="margin-top:8px"><span><b>تحذير: ${fmtN(imp.issues.length)} سجلًا بشكل غير سليم</b> (مبلغ ليس رقمًا، أو عملة أو تاريخ أو حالة غير معروفة). أمثلة: ${imp.issues.slice(0, 5).map(i => esc((COL_AR[i.c] || i.c) + ' ' + i.id + ': ' + i.why)).join('، ')}. الاستعادة تكتبها كما هي، وقد تُظهر أرقامًا خاطئة.</span></div>
+    <label class="note" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="impAck" style="width:auto"> راجعت التحذير، وأريد المتابعة بهذه السجلات</label>` : ''}
     ${clash ? `<label class="note" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="impOver" style="width:auto"> استبدال ${fmtN(clash)} سجلًا موجودًا بنسخة الملف (تُنزَّل نسخة احتياطية تلقائيًا قبل الاستبدال)</label>` : ''}`;
   info.textContent = (imp.kind === 'backup' ? 'نسخة احتياطية من صلة' : 'ملف نقل من دفتر رتّل') + ' · ' + fmtN(fresh) + ' سجل جديد' + (clash ? ' · ' + fmtN(clash) + ' موجود مسبقًا ولن يُستبدل إلا باختيارك' : '') + (imp.bad.length ? ' · تُجوهلت ' + imp.bad.length + ' سجلات بلا معرّف صالح' : '') + '.';
   $('impBtn').disabled = false;
@@ -717,6 +724,7 @@ async function runImport() {
   if (!imp) return; const over = !!($('impOver') && $('impOver').checked);
   const ops = imp.ops.filter(o => over || !(imp.existing[o.c] && imp.existing[o.c].has(o.id)));
   if (!ops.length) { toast('لا سجلات جديدة. فعّل «استبدال» لاستبدال الموجود.'); return; }
+  if (imp.issues.length && !($('impAck') && $('impAck').checked)) { toast('في الملف سجلات غير سليمة. راجع التحذير وأكّد قبل النقل.'); return; }
   $('impBtn').disabled = true;
   if (over) { $('impInfo').textContent = 'تنزيل نسخة احتياطية قبل الاستبدال…'; if (!(await exportBackup())) { $('impBtn').disabled = false; return; } }
   $('impInfo').textContent = 'جارٍ النقل…';
@@ -732,6 +740,7 @@ function viewMine() {
   const nextI = isT ? list.findIndex(o => o.ms + durOf(o.s) * 6e4 > now && !rec(S.date, o.s.id)) : -1;
   return `<div class="bar" style="margin-bottom:8px"><div class="grow">${t.name ? `<span class="eyebrow">${esc(t.name)}</span>` : ''}<h1>حلقاتي</h1></div>
     ${U.safeLink(t.room) ? `<a class="btn blue" href="${esc(U.safeLink(t.room))}" target="_blank" rel="noopener">${ic('video')}دخول غرفتي الثابتة</a>` : ''}</div>
+  ${teacherLocked(S.date) ? `<div class="alert amber" role="status" style="margin-bottom:12px"><span><b>${U.monthLabel(S.date.slice(0, 7))} مغلق ماليًا.</b> اعتُمد راتب هذا الشهر، فلا يمكن تسجيل الحضور أو تعديله أو حذفه. اطلب أي تصحيح من المشرف أو المدير.</span></div>` : ''}
   <div class="daybar"><div class="bar" style="margin:0;justify-content:center">${dayNav()}</div></div>
   ${list.length ? `<div class="prog"><div class="grow"><span>سُجّل حضور <b>${done}</b> من <b>${list.length}</b> · كُتب <b>${reps}</b> تقرير</span><div class="meter ok"><i style="width:${Math.round(done / list.length * 100)}%"></i></div></div>${done === list.length ? chip('اكتمل التسجيل', 'ok') : ''}</div>
   <div class="cards">${list.map((o, i) => sessionCard(o, { next: i === nextI })).join('')}</div>` : '<div class="empty">لا حلقات لك في هذا اليوم.</div>'}
@@ -937,6 +946,14 @@ async function approvePayroll(tid, on) {
     else await S.api.del('payroll', id);
     toast(on ? 'اعتُمدت مستحقات ' + tName(tid) : 'أُلغي الاعتماد'); await reload();
   } catch (e) { fail(e); }
+}
+// corrections made after approval: how many attendance records changed since, and the difference from the approved total
+function afterPay(tid, m, x) {
+  if (!x.approved) return '';
+  const n = D.att.filter(a => a.teacherId === tid && a.month === m && (Number(a.at) || 0) > (Number(x.approved.approvedAt) || 0)).length;
+  const diff = Math.round(x.due) - Number(x.approved.total);
+  if (!n && !diff) return '';
+  return `<br><span class="note">${n ? fmtN(n) + ' تعديل حضور بعد الاعتماد' : ''}${n && diff ? ' · ' : ''}${diff ? 'الفرق عن المعتمد ' + (diff > 0 ? '+' : '−') + fmtN(Math.abs(diff)) + ' ج.م (المعتمد ' + fmtN(x.approved.total) + ')' : ''}</span>`;
 }
 function payStatus(x) {
   if (!x.approved) return chip('محسوب', 'exc');
