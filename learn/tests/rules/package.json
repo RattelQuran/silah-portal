@@ -1,0 +1,7 @@
+{
+  "name": "silah-learn-rules-tests",
+  "private": true,
+  "description": "Emulator tests for the PROPOSED learning rules. Local only; uses the free Firestore emulator, no project, no deploy.",
+  "scripts": { "test": "firebase emulators:exec --only firestore --project demo-silah \"node rules.test.js\"" },
+  "devDependencies": { "firebase-tools": "^13.0.0", "@firebase/rules-unit-testing": "^3.0.0", "firebase": "^10.14.0" }
+}

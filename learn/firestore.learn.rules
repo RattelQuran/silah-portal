@@ -1,0 +1,116 @@
+// PROPOSED rules for the Silah learning section. NOT PUBLISHED. Do not deploy without review and emulator tests.
+// Merge into the portal's firestore.rules (which is not in the repo yet; see docs/QA_REPORT.md S-1).
+// Assumes users/{uid} = { role: 'admin'|'teacher'|'parent', teacherId, studentIds[], learnPlan } and
+// that users/{uid}.role / studentIds / learnPlan can only be written by an admin (open risk S-1 until confirmed).
+// Spark plan: no Cloud Functions. Every reward check below runs in rules, inside one batched write.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return signedIn() && me().role == 'admin'; }
+    function isParentOf(sid) { return signedIn() && me().role == 'parent' && sid in me().studentIds; }
+    function isTeacherOf(sid) { return signedIn() && me().role == 'teacher'
+      && get(/databases/$(db)/documents/students/$(sid)).data.teacherId == me().teacherId; }
+    // subscription: set by admin only on the user doc
+    function hasLearn() { return signedIn() && (me().role == 'admin' || me().get('learnPlan', 'none') in ['active', 'trial']); }
+
+    // ---------- published content: everyone with the plan reads, only admin writes ----------
+    match /learnLessons/{id} {
+      allow read: if hasLearn();
+      allow write: if isAdmin()
+        && request.resource.data.weight is number && request.resource.data.weight >= 1 && request.resource.data.weight <= 3;
+    }
+    match /learnShop/{itemId} {           // { price }
+      allow read: if hasLearn();
+      allow write: if isAdmin();
+    }
+    match /learnDrafts/{id} {             // content factory, admin only (a separate 'content' role can be added later)
+      allow read, write: if isAdmin();
+    }
+
+    // ---------- parent settings ----------
+    match /learnSettings/{parentUid} {    // { coinRules{section:int}, shopLockUntil, dailyMin, allowBuy }
+      allow read: if signedIn() && request.auth.uid == parentUid;
+      allow write: if signedIn() && request.auth.uid == parentUid && validRules(request.resource.data.coinRules);
+    }
+    function validRules(r) {
+      return r is map && r.keys().hasOnly(['games','letters','sight','exercises','listening','grammar','stories','texts'])
+        && (!('games' in r) || (r.games is int && r.games >= 0 && r.games <= 5))
+        && (!('letters' in r) || (r.letters is int && r.letters >= 0 && r.letters <= 5))
+        && (!('sight' in r) || (r.sight is int && r.sight >= 0 && r.sight <= 5))
+        && (!('exercises' in r) || (r.exercises is int && r.exercises >= 0 && r.exercises <= 5))
+        && (!('listening' in r) || (r.listening is int && r.listening >= 0 && r.listening <= 5))
+        && (!('grammar' in r) || (r.grammar is int && r.grammar >= 0 && r.grammar <= 5))
+        && (!('stories' in r) || (r.stories is int && r.stories >= 0 && r.stories <= 5))
+        && (!('texts' in r) || (r.texts is int && r.texts >= 0 && r.texts <= 5));
+    }
+
+    // ---------- progress: best stars per lesson, only ever increases ----------
+    match /learnProgress/{sid}/best/{lessonId} {   // { stars, correct, wrong, at }
+      allow read: if isParentOf(sid) || isTeacherOf(sid) || isAdmin();
+      allow create, update: if isParentOf(sid) && hasLearn()
+        && request.resource.data.keys().hasOnly(['stars','correct','wrong','at'])
+        && request.resource.data.stars is int && request.resource.data.stars >= 1 && request.resource.data.stars <= 3
+        && request.resource.data.stars > (resource == null ? 0 : resource.data.stars)
+        && exists(/databases/$(db)/documents/learnLessons/$(lessonId))
+        // the matching ledger entry must be written in the same batch
+        && existsAfter(/databases/$(db)/documents/learnWallet/$(sid)/ledger/$('earn_' + lessonId + '_' + string(request.resource.data.stars)));
+      allow delete: if false;
+    }
+
+    // ---------- wallet: balance moves only together with one new ledger entry ----------
+    match /learnWallet/{sid} {            // { balance, lastTx, parentUid }
+      allow read: if isParentOf(sid) || isAdmin();
+      allow create: if isParentOf(sid) && request.resource.data.balance == 0 && request.resource.data.parentUid == request.auth.uid;
+      allow update: if isParentOf(sid)
+        && request.resource.data.parentUid == resource.data.parentUid
+        && request.resource.data.lastTx != resource.data.lastTx
+        && !exists(/databases/$(db)/documents/learnWallet/$(sid)/ledger/$(request.resource.data.lastTx))
+        && existsAfter(/databases/$(db)/documents/learnWallet/$(sid)/ledger/$(request.resource.data.lastTx))
+        && request.resource.data.balance == resource.data.balance
+             + getAfter(/databases/$(db)/documents/learnWallet/$(sid)/ledger/$(request.resource.data.lastTx)).data.amount
+        && request.resource.data.balance >= 0;
+      allow delete: if false;
+
+      match /ledger/{txId} {              // { kind, lessonId|itemId, stars, amount, at } ; append-only
+        allow read: if isParentOf(sid) || isAdmin();
+        allow update, delete: if false;
+        allow create: if isParentOf(sid) && hasLearn()
+          && getAfter(/databases/$(db)/documents/learnWallet/$(sid)).data.lastTx == txId
+          && (validEarn(sid, txId) || validBuy(sid, txId));
+      }
+    }
+    function walletParent(sid) { return get(/databases/$(db)/documents/learnWallet/$(sid)).data.parentUid; }
+    function settings(sid) { return get(/databases/$(db)/documents/learnSettings/$(walletParent(sid))).data; }
+    function validEarn(sid, txId) {
+      let d = request.resource.data;
+      let lesson = get(/databases/$(db)/documents/learnLessons/$(d.lessonId)).data;
+      let bestPath = /databases/$(db)/documents/learnProgress/$(sid)/best/$(d.lessonId);
+      let prev = exists(bestPath) ? get(bestPath).data.stars : 0;
+      let rate = settings(sid).coinRules.get(lesson.section, 0);
+      return d.kind == 'earn' && txId == 'earn_' + d.lessonId + '_' + string(d.stars)
+        && getAfter(bestPath).data.stars == d.stars && d.stars > prev
+        && d.amount == (d.stars - prev) * rate * lesson.weight;
+    }
+    function validBuy(sid, txId) {
+      let d = request.resource.data;
+      let s = settings(sid);
+      return d.kind == 'buy' && txId == 'buy_' + d.itemId
+        && d.amount == -get(/databases/$(db)/documents/learnShop/$(d.itemId)).data.price
+        && s.get('allowBuy', true) == true
+        && s.get('shopLockUntil', 0) < request.time.toMillis();
+    }
+
+    // ---------- assignments ----------
+    match /learnAssignments/{id} {        // { teacherId, studentIds[], lessonId, due }
+      allow read: if isAdmin() || (signedIn() && me().role == 'teacher' && resource.data.teacherId == me().teacherId)
+        || (signedIn() && me().role == 'parent' && resource.data.studentIds.hasAny(me().studentIds));
+      allow create, update: if signedIn() && me().role == 'teacher' && request.resource.data.teacherId == me().teacherId
+        && request.resource.data.studentIds.size() <= 40;
+      allow delete: if isAdmin() || (signedIn() && me().role == 'teacher' && resource.data.teacherId == me().teacherId);
+    }
+  }
+}
