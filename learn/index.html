@@ -1,0 +1,720 @@
+<title>صلة تتعلّم</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="النموذج التفاعلي الأول للتوسع التعليمي في بوابة صلة: الرئيسية والأقسام وأربعة محركات ألعاب والكنز والدكان وواجهات الأهل والمعلمة والإدارة.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one shell. Sticky top bar (logo, role switch, wallet), then a single view swapped by the hash.
+   SILAH Signature for kids: cream ground, navy night scenes, gold thread, crimson calls to action, pointed-arch cards. */
+:root{
+  color-scheme:light;
+  --cream:#FBF7F0; --sand:#F2EADC; --sage:#DDEBE3; --sky:#DCEBFA;
+  --navy-deep:#0C2470; --navy:#1236A0; --crimson:#C8174D; --gold:#C9A24B; --gold-soft:#F3E3B8;
+  --ink:#14213D; --muted:#5E6678; --line:#E6DCC8; --card:#FFFFFF;
+  --ok:#1F8F6A; --warn:#B87F00; --bad:#C8174D;
+  --display:"Baloo Bhaijaan 2","IBM Plex Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif;
+  --r:18px; --shadow:0 1px 0 rgba(12,36,112,.06),0 10px 26px rgba(20,33,61,.08);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--cream);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--card)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--crimson);outline-offset:2px;border-radius:10px}
+h1,h2,h3{font-family:var(--display);color:var(--navy-deep);margin:0;line-height:1.25;text-wrap:balance}
+h1{font-size:clamp(1.6rem,4vw,2.3rem);font-weight:800}
+h2{font-size:1.35rem;font-weight:800}
+h3{font-size:1.08rem;font-weight:700}
+p{margin:0}
+.wrap{max-width:1160px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.muted{color:var(--muted)}
+.tag{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 10px;font-size:.78rem;font-weight:700;background:var(--sand);color:var(--navy)}
+.tag.ok{background:#DDF1E8;color:var(--ok)} .tag.warn{background:#FBEFD2;color:var(--warn)} .tag.red{background:#FBE1E9;color:var(--crimson)} .tag.gold{background:var(--gold-soft);color:#7A5B12}
+.btn{border:0;border-radius:999px;padding:10px 18px;font-weight:700;display:inline-flex;align-items:center;gap:8px;font-size:.95rem;text-decoration:none;transition:transform .12s}
+.btn:active{transform:scale(.97)}
+.btn.red{background:var(--crimson);color:#fff}
+.btn.navy{background:var(--navy);color:#fff}
+.btn.gold{background:var(--gold);color:var(--navy-deep)}
+.btn.ghost{background:var(--card);color:var(--navy);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.sm{padding:6px 12px;font-size:.84rem}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:var(--card);box-shadow:0 1px 0 var(--line)}
+.top .wrap{display:flex;align-items:center;gap:12px;padding-block:8px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo img{width:42px;height:42px;border-radius:50%;object-fit:cover;background:#fff;box-shadow:0 0 0 2px var(--gold-soft)}
+.logo b{font-family:var(--display);color:var(--navy-deep);font-size:1.25rem;display:block;line-height:1}
+.logo small{color:var(--muted);font-size:.75rem}
+.roles{display:flex;gap:4px;background:var(--sand);padding:4px;border-radius:999px;margin-inline-start:auto;overflow-x:auto;max-width:100%}
+.roles button{border:0;background:none;border-radius:999px;padding:6px 12px;font-weight:700;font-size:.85rem;color:var(--muted);white-space:nowrap}
+.roles button[aria-pressed="true"]{background:var(--navy);color:#fff}
+.wallet{display:flex;align-items:center;gap:6px;background:var(--navy-deep);color:#fff;border-radius:999px;padding:4px 12px 4px 6px;font-weight:700;font-variant-numeric:tabular-nums;text-decoration:none}
+.wallet svg{width:26px;height:26px}
+.proto{background:var(--navy-deep);color:var(--gold-soft);font-size:.8rem;text-align:center;padding:4px 16px}
+
+main{padding-block:22px 80px}
+.view{display:grid;gap:22px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;align-items:center;background:var(--navy-deep);color:#fff;border-radius:28px;padding:28px;position:relative;overflow:hidden}
+.hero h1{color:#fff}
+.hero p{color:#D6DCF0;max-width:46ch}
+.hero .thread{position:absolute;inset:auto 0 18px 0;height:40px;pointer-events:none}
+.hero-art{display:flex;justify-content:center}
+.hero-art svg{width:min(260px,100%);height:auto}
+.continue{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+@media (max-width:760px){.hero{grid-template-columns:1fr;padding:22px}.hero-art{order:-1}.hero-art svg{width:160px}}
+
+/* section grid with pointed arches */
+.sections{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.arch{position:relative;border:0;background:var(--card);border-radius:90px 90px 18px 18px;padding:18px 12px 14px;text-align:center;box-shadow:var(--shadow);display:grid;justify-items:center;gap:6px;color:var(--ink);transition:transform .15s}
+.arch:hover{transform:translateY(-3px)}
+.arch .ic{width:74px;height:74px;border-radius:50% 50% 14px 14px;display:grid;place-items:center}
+.arch .ic svg{width:46px;height:46px}
+.arch b{font-family:var(--display);font-size:1.15rem;color:var(--navy-deep)}
+.arch small{color:var(--muted);font-size:.78rem;line-height:1.4}
+.bar{display:block;height:8px;border-radius:99px;background:var(--sand);overflow:hidden;width:100%}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#E2C171);border-radius:99px}
+
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:18px;align-content:start}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.row .grow{flex:1;min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.sec-head{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.sec-head .ic{width:64px;height:64px;border-radius:50% 50% 12px 12px;display:grid;place-items:center;flex:none}
+.sec-head .ic svg{width:40px;height:40px}
+.crumb{border:0;background:none;color:var(--navy);font-weight:700;padding:0;justify-self:start}
+
+/* groups and lessons */
+.groups{display:grid;gap:12px}
+.group{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.group summary{list-style:none;display:flex;gap:12px;align-items:center;padding:14px 16px;cursor:pointer}
+.group summary::-webkit-details-marker{display:none}
+.group .num{width:36px;height:36px;border-radius:50% 50% 8px 8px;background:var(--sand);color:var(--navy-deep);display:grid;place-items:center;font-family:var(--display);font-weight:800;flex:none}
+.group .lessons{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:0 16px 16px}
+.lesson{border:0;background:var(--cream);border-radius:14px;padding:12px;text-align:start;display:grid;gap:4px;box-shadow:inset 0 0 0 1.5px var(--line)}
+.lesson b{font-size:.95rem}
+.lesson.live{background:#fff;box-shadow:inset 0 0 0 2px var(--gold)}
+.lesson .stars{color:var(--gold);letter-spacing:2px;font-size:.9rem}
+.lesson[disabled]{cursor:default;opacity:.75}
+
+/* letters */
+.letters{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
+.letters button{border:0;aspect-ratio:1;border-radius:16px 16px 10px 10px;background:var(--card);box-shadow:var(--shadow);font-family:var(--display);font-size:2rem;color:var(--navy-deep);display:grid;place-items:center}
+.letters button.done{background:var(--gold-soft)}
+.forms{display:flex;gap:10px;flex-wrap:wrap}
+.forms div{background:var(--cream);border-radius:14px;padding:8px 14px;text-align:center;min-width:72px}
+.forms b{display:block;font-family:var(--display);font-size:2.2rem;color:var(--navy-deep);line-height:1.4}
+.forms small{color:var(--muted)}
+.big-ar{font-family:var(--display);font-size:1.5rem;color:var(--navy-deep);line-height:2}
+
+/* game stage */
+.stage{background:var(--navy-deep);border-radius:24px;overflow:hidden;position:relative;box-shadow:var(--shadow)}
+.stage canvas{display:block;width:100%;touch-action:none}
+.hud{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.hud .prompt{flex:1;min-width:180px;font-family:var(--display);font-size:1.15rem;color:var(--navy-deep)}
+.dots{display:flex;gap:4px}
+.dots i{width:12px;height:12px;border-radius:50%;background:var(--sand);box-shadow:inset 0 0 0 1.5px var(--line)}
+.dots i.on{background:var(--gold);box-shadow:none}
+.hearts{color:var(--crimson);font-size:1.1rem;letter-spacing:2px;min-width:60px}
+.iconbtn{border:0;background:var(--sand);color:var(--navy);width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(12,36,112,.55);padding:16px}
+.panel{background:var(--cream);border-radius:90px 90px 22px 22px;padding:34px 24px 22px;text-align:center;max-width:380px;width:100%;display:grid;gap:12px;justify-items:center;box-shadow:0 20px 40px rgba(0,0,0,.25)}
+.panel .bigstars{font-size:2.4rem;color:var(--gold);letter-spacing:6px}
+.panel .bigstars .off{color:#D9CFBA}
+.memgrid{display:grid;gap:10px;padding:16px;grid-template-columns:repeat(4,1fr);background:var(--sage)}
+.mcard{aspect-ratio:3/4;border:0;border-radius:16px;perspective:600px;background:none;padding:0}
+.mcard{display:block;width:100%}
+.mcard .in{display:block;position:relative;width:100%;height:100%;transition:transform .35s;transform-style:preserve-3d}
+.mcard.flip .in,.mcard.got .in{transform:rotateY(180deg)}
+.mcard .f,.mcard .b{position:absolute;inset:0;border-radius:16px;backface-visibility:hidden;display:grid;place-items:center}
+.mcard .b{background:var(--navy) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cpath d='M20 4l4.7 8.6 9.6-1.9-1.9 9.6L41 25l-8.6 4.7 1.9 9.6-9.6-1.9L20 46' fill='none' stroke='%23C9A24B' stroke-opacity='.45'/%3E%3Cpath d='M20 6l3.9 7.1 8-1.6-1.6 8L37.4 23l-7.1 3.9 1.6 8-8-1.6L20 40.4l-3.9-7.1-8 1.6 1.6-8L2.6 23l7.1-3.9-1.6-8 8 1.6z' fill='none' stroke='%23C9A24B' stroke-opacity='.5'/%3E%3C/svg%3E") center/40px}
+.mcard .f{background:#fff;transform:rotateY(180deg);font-family:var(--display);font-size:clamp(1.4rem,5vw,2.4rem);color:var(--navy-deep);box-shadow:inset 0 0 0 3px var(--gold-soft)}
+.mcard.got .f{background:var(--gold-soft)}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;padding:18px;background:var(--sky)}
+.choice{border:0;background:#fff;border-radius:60px 60px 16px 16px;padding:22px 10px;font-family:var(--display);font-size:clamp(1.6rem,5vw,2.4rem);color:var(--navy-deep);box-shadow:var(--shadow);line-height:1.5}
+.choice.right{background:#DDF1E8;color:var(--ok)} .choice.wrong{background:#FBE1E9;color:var(--crimson);animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.speaker{display:grid;place-items:center;padding:22px;background:var(--sky)}
+.speaker button{width:110px;height:110px;border-radius:50%;border:0;background:var(--crimson);color:#fff;box-shadow:0 8px 0 #93113A}
+.speaker button:active{transform:translateY(4px);box-shadow:0 4px 0 #93113A}
+.speaker svg{width:52px;height:52px}
+
+/* treasure, shop */
+.coinrow{display:flex;align-items:center;gap:14px}
+.coinrow .amt{font-family:var(--display);font-size:2.6rem;color:var(--navy-deep);font-variant-numeric:tabular-nums;line-height:1}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.badge{background:var(--cream);border-radius:60px 60px 14px 14px;padding:14px 8px;text-align:center;display:grid;gap:4px;justify-items:center}
+.badge svg{width:48px;height:48px}
+.badge.locked{filter:grayscale(1);opacity:.5}
+.tscroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:start;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:.82rem}
+td.num{font-variant-numeric:tabular-nums;font-weight:700}
+.shopitem{display:grid;gap:8px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:14px;text-align:center;justify-items:center}
+.shopitem .art{width:100%;aspect-ratio:4/3;border-radius:60px 60px 12px 12px;display:grid;place-items:center}
+.shopitem .art svg{width:60%;height:auto}
+.lockbanner{display:flex;gap:12px;align-items:center;background:var(--navy-deep);color:#fff;border-radius:var(--r);padding:14px 18px}
+.lockbanner b{color:var(--gold-soft)}
+
+/* forms */
+.field{display:grid;gap:4px}
+.field label{font-weight:600;font-size:.88rem;color:var(--muted)}
+.field input,.field select,.field textarea{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:9px 12px;width:100%}
+.form{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.form .full{grid-column:1/-1}
+pre.json{background:var(--navy-deep);color:#E8ECF8;border-radius:14px;padding:14px;font-size:.8rem;overflow:auto;max-height:280px;direction:ltr;text-align:left;margin:0}
+.flow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.flow span{padding:4px 12px;border-radius:999px;background:var(--sand);font-weight:700;font-size:.82rem;color:var(--muted)}
+.flow span.on{background:var(--navy);color:#fff}
+.heat td{text-align:center;font-family:var(--display);font-size:1.2rem}
+.story{background:var(--cream);border-radius:18px;padding:18px;font-family:var(--display);font-size:1.4rem;line-height:2.2;color:var(--navy-deep)}
+.toast{position:fixed;inset-inline:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;pointer-events:none;z-index:20}
+.toast div{background:var(--navy-deep);color:#fff;padding:10px 18px;border-radius:999px;font-weight:700;box-shadow:var(--shadow)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="proto">نموذج أولي للمراجعة · بيانات تجريبية محفوظة في متصفحك فقط · لا يتصل بقاعدة بيانات صلة</div>
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#home"><img alt="شعار صلة" src="../logo.jpg"><span><b>صلة تتعلّم</b><small>العربية للأطفال باللعب</small></span></a>
+    <div class="roles" role="group" aria-label="عرض الواجهة بصفة">
+      <button type="button" data-role="child" aria-pressed="true">الطفل</button>
+      <button type="button" data-role="parent" aria-pressed="false">ولي الأمر</button>
+      <button type="button" data-role="teacher" aria-pressed="false">المعلمة</button>
+      <button type="button" data-role="admin" aria-pressed="false">الإدارة</button>
+    </div>
+    <a class="wallet" href="#treasure" aria-label="رصيد الكنز"><span id="coinIcon"></span><span id="coinBal">0</span></a>
+  </div>
+</header>
+<main class="wrap"><div id="view" class="view"></div></main>
+<div class="toast" id="toast" hidden><div></div></div>
+
+<script>
+/* ============ assets: original Silah characters and icons (inline SVG) ============ */
+const SVG = {
+  coin:(s=26)=>`<svg viewBox="0 0 40 40" width="${s}" height="${s}" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#C9A24B"/><circle cx="20" cy="20" r="14.5" fill="#E2C171" stroke="#A8822F" stroke-width="1.5"/><path d="M20 9.5l2.3 4.4 4.9-1-1 4.9 4.4 2.2-4.4 2.3 1 4.9-4.9-1L20 30.5l-2.3-4.4-4.9 1 1-4.9L9.4 20l4.4-2.2-1-4.9 4.9 1z" fill="none" stroke="#A8822F" stroke-width="1.2"/><text x="20" y="25.5" text-anchor="middle" font-family="Baloo Bhaijaan 2,sans-serif" font-weight="800" font-size="13" fill="#0C2470">ص</text></svg>`,
+  // Nour: Silah's lantern mascot
+  nour:(mood='happy')=>`<svg viewBox="0 0 200 240" aria-label="نور، فانوس صلة"><defs><radialGradient id="glow" cx="50%" cy="55%" r="50%"><stop offset="0" stop-color="#FFE9A8"/><stop offset="1" stop-color="#E2B44F"/></radialGradient></defs>
+    <ellipse cx="100" cy="226" rx="54" ry="8" fill="#000" opacity=".18"/>
+    <path d="M100 6c-8 0-12 6-12 12h24c0-6-4-12-12-12z" fill="#C9A24B"/><circle cx="100" cy="6" r="5" fill="none" stroke="#C9A24B" stroke-width="3"/>
+    <path d="M70 34 L100 18 L130 34 Z" fill="#C9A24B"/><rect x="64" y="34" width="72" height="12" rx="4" fill="#A8822F"/>
+    <path d="M58 52 Q100 40 142 52 L150 168 Q100 182 50 168 Z" fill="#1236A0"/>
+    <path d="M72 60 Q100 52 128 60 L134 160 Q100 170 66 160 Z" fill="url(#glow)"/>
+    <path d="M100 56 L100 166 M72 108 L128 108" stroke="#C9A24B" stroke-width="3" opacity=".55"/>
+    <path d="M78 70 Q100 50 122 70" fill="none" stroke="#C8174D" stroke-width="4" stroke-linecap="round"/>
+    <g fill="#0C2470"><ellipse cx="86" cy="104" rx="7" ry="${mood==='wow'?10:8}"/><ellipse cx="114" cy="104" rx="7" ry="${mood==='wow'?10:8}"/></g>
+    <g fill="#fff"><circle cx="88" cy="101" r="2.4"/><circle cx="116" cy="101" r="2.4"/></g>
+    <circle cx="76" cy="122" r="6" fill="#C8174D" opacity=".35"/><circle cx="124" cy="122" r="6" fill="#C8174D" opacity=".35"/>
+    ${mood==='wow'?'<ellipse cx="100" cy="128" rx="7" ry="8" fill="#0C2470"/>':'<path d="M88 124 Q100 136 112 124" fill="none" stroke="#0C2470" stroke-width="4" stroke-linecap="round"/>'}
+    <rect x="56" y="166" width="88" height="14" rx="6" fill="#A8822F"/><path d="M66 180 L134 180 L124 196 L76 196 Z" fill="#C9A24B"/>
+    <path d="M84 196 v18 M116 196 v18" stroke="#0C2470" stroke-width="7" stroke-linecap="round"/><ellipse cx="80" cy="216" rx="10" ry="5" fill="#C8174D"/><ellipse cx="120" cy="216" rx="10" ry="5" fill="#C8174D"/>
+    <path d="M52 110 q-18 6 -20 24" stroke="#1236A0" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M148 110 q18 -4 22 -22" stroke="#1236A0" stroke-width="7" fill="none" stroke-linecap="round"/>
+  </svg>`,
+  chest:()=>`<svg viewBox="0 0 220 170" aria-label="صندوق الكنز"><ellipse cx="110" cy="160" rx="92" ry="8" fill="#000" opacity=".15"/>
+    <path d="M24 70 Q110 0 196 70 Z" fill="#1236A0"/><path d="M40 66 Q110 14 180 66" fill="none" stroke="#C9A24B" stroke-width="6"/>
+    <circle cx="80" cy="56" r="9" fill="#E2C171"/><circle cx="112" cy="46" r="10" fill="#E2C171"/><circle cx="140" cy="58" r="8" fill="#E2C171"/>
+    <rect x="24" y="68" width="172" height="86" rx="10" fill="#0C2470"/><rect x="24" y="68" width="172" height="16" fill="#C9A24B"/>
+    <path d="M60 84 v70 M160 84 v70" stroke="#C9A24B" stroke-width="8"/><path d="M96 92 h28 v26 q-14 10 -28 0z" fill="#C8174D"/><circle cx="110" cy="104" r="4" fill="#F3E3B8"/></svg>`,
+  speaker:()=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`,
+};
+// Section icons: one visual family (rounded strokes, navy + gold + crimson), drawn for Silah.
+const ICON = {
+  games:`<svg viewBox="0 0 48 48"><rect x="6" y="15" width="36" height="22" rx="11" fill="#1236A0"/><path d="M15 21v10M10 26h10" stroke="#F3E3B8" stroke-width="3.2" stroke-linecap="round"/><circle cx="31" cy="23" r="2.8" fill="#C8174D"/><circle cx="36" cy="28" r="2.8" fill="#C9A24B"/></svg>`,
+  letters:`<svg viewBox="0 0 48 48"><path d="M8 40 Q24 2 40 40" fill="#C9A24B" opacity=".25"/><text x="24" y="36" text-anchor="middle" font-family="Baloo Bhaijaan 2,sans-serif" font-weight="800" font-size="30" fill="#0C2470">ب</text></svg>`,
+  sight:`<svg viewBox="0 0 48 48"><path d="M4 24s8-12 20-12 20 12 20 12-8 12-20 12S4 24 4 24z" fill="#fff" stroke="#1236A0" stroke-width="3"/><circle cx="24" cy="24" r="7" fill="#C8174D"/><circle cx="26" cy="22" r="2" fill="#fff"/></svg>`,
+  exercises:`<svg viewBox="0 0 48 48"><rect x="10" y="6" width="28" height="36" rx="5" fill="#fff" stroke="#1236A0" stroke-width="3"/><path d="M16 17l3 3 5-6M16 29l3 3 5-6" stroke="#1F8F6A" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M28 18h5M28 30h5" stroke="#C9A24B" stroke-width="3" stroke-linecap="round"/></svg>`,
+  listening:`<svg viewBox="0 0 48 48"><path d="M10 28v-4a14 14 0 0 1 28 0v4" fill="none" stroke="#1236A0" stroke-width="4"/><rect x="6" y="26" width="9" height="14" rx="4" fill="#C8174D"/><rect x="33" y="26" width="9" height="14" rx="4" fill="#C8174D"/></svg>`,
+  grammar:`<svg viewBox="0 0 48 48"><rect x="5" y="30" width="12" height="12" rx="3" fill="#C9A24B"/><rect x="18" y="18" width="12" height="24" rx="3" fill="#1236A0"/><rect x="31" y="8" width="12" height="34" rx="3" fill="#C8174D"/></svg>`,
+  stories:`<svg viewBox="0 0 48 48"><path d="M24 12c-6-4-13-4-18-2v28c5-2 12-2 18 2 6-4 13-4 18-2V10c-5-2-12-2-18 2z" fill="#fff" stroke="#1236A0" stroke-width="3" stroke-linejoin="round"/><path d="M24 12v28" stroke="#C9A24B" stroke-width="3"/></svg>`,
+  texts:`<svg viewBox="0 0 48 48"><path d="M12 6h18l8 8v28H12z" fill="#fff" stroke="#1236A0" stroke-width="3" stroke-linejoin="round"/><path d="M18 22h14M18 28h14M18 34h9" stroke="#C9A24B" stroke-width="3" stroke-linecap="round"/></svg>`,
+  treasure:`<svg viewBox="0 0 48 48"><path d="M6 20 Q24 2 42 20z" fill="#1236A0"/><rect x="6" y="20" width="36" height="20" rx="3" fill="#0C2470"/><rect x="6" y="20" width="36" height="4" fill="#C9A24B"/><path d="M20 26h8v6q-4 3-8 0z" fill="#C8174D"/></svg>`,
+  shop:`<svg viewBox="0 0 48 48"><path d="M6 18 L10 8 H38 L42 18" fill="#C8174D"/><path d="M6 18 q4.5 6 9 0 q4.5 6 9 0 q4.5 6 9 0 q4.5 6 9 0" fill="#C8174D" stroke="#C8174D"/><rect x="9" y="22" width="30" height="20" rx="2" fill="#fff" stroke="#1236A0" stroke-width="3"/><path d="M20 42V31h8v11" fill="#C9A24B"/></svg>`,
+};
+const BG = {games:'#DCEBFA',letters:'#F3E3B8',sight:'#FBE1E9',exercises:'#DDEBE3',listening:'#FBE1E9',grammar:'#F2EADC',stories:'#DCEBFA',texts:'#DDEBE3',treasure:'#F3E3B8',shop:'#FBE1E9'};
+
+/* ============ curriculum data (original Silah content; separate from engines) ============ */
+const AR = 'ا ب ت ث ج ح خ د ذ ر ز س ش ص ض ط ظ ع غ ف ق ك ل م ن ه و ي'.split(' ');
+const NAMES = {'ا':'الأَلِف','ب':'البَاء','ت':'التَّاء','ث':'الثَّاء','ج':'الجِيم','ح':'الحَاء','خ':'الخَاء','د':'الدَّال','ذ':'الذَّال','ر':'الرَّاء','ز':'الزَّاي','س':'السِّين','ش':'الشِّين','ص':'الصَّاد','ض':'الضَّاد','ط':'الطَّاء','ظ':'الظَّاء','ع':'العَيْن','غ':'الغَيْن','ف':'الفَاء','ق':'القَاف','ك':'الكَاف','ل':'اللَّام','م':'المِيم','ن':'النُّون','ه':'الهَاء','و':'الوَاو','ي':'اليَاء'};
+const NONJOIN = new Set(['ا','د','ذ','ر','ز','و']);
+const forms = l => NONJOIN.has(l) ? {iso:l,ini:l,med:'ـ'+l,fin:'ـ'+l} : {iso:l,ini:l+'ـ',med:'ـ'+l+'ـ',fin:'ـ'+l};
+const WORDS = {
+  'ا':['أَسَد','أَرْنَب','أُمّ','إِبْرِيق'],
+  'ب':['بَاب','بَيْت','بَحْر','بَقَرَة'],
+  'ت':['تَمْر','تُفَّاح','تَاج','تِين'],
+  'ث':['ثَوْب','ثَلْج','ثَعْلَب','ثُوم'],
+  'ج':['جَمَل','جَبَل','جَزَر','جَرَس'],
+};
+const OTHER_WORDS = ['قَمَر','شَمْس','وَرْدَة','نَهْر','سَمَكَة','كِتَاب','دَار','فِيل','لَيْمُون','مَسْجِد','نَخْلَة','غَيْمَة','حِصَان','زَيْت','عُصْفُور','فَرَاشَة'];
+const SIGHT = ['فِي','مِنْ','عَلَى','إِلَى','هُوَ','هِيَ','هَذَا','هَذِهِ','أَنَا','أَنْتَ','نَحْنُ','قَالَ','ذَهَبَ','كَانَ','لَا','نَعَمْ','مَعَ','عِنْدَ','ثُمَّ','كَبِيرٌ'];
+
+// Section map: Silah's own grouping; targets are coverage goals, live = playable in this prototype.
+const SECTIONS = [
+ {id:'games',name:'الألعاب',desc:'رحلات قصيرة باللعب من الحرف إلى الكلمة إلى الجملة.',target:'٢٠٠ درس في ٢١ رحلة',groups:[
+   ['رحلة ١: الأَلِف وَالبَاء',['ا','ب']],['رحلة ٢: التَّاء وَالثَّاء',['ت','ث']],['رحلة ٣: الجِيم وَالحَاء وَالخَاء',['ج','ح','خ']],['رحلة ٤: الدَّال وَالذَّال',['د','ذ']],['رحلة ٥: الرَّاء وَالزَّاي',['ر','ز']],['رحلة ٦: السِّين وَالشِّين',['س','ش']],['رحلة ٧: الصَّاد وَالضَّاد',['ص','ض']],['رحلة ٨: الطَّاء وَالظَّاء',['ط','ظ']],['رحلة ٩: العَيْن وَالغَيْن',['ع','غ']],['رحلة ١٠: الفَاء وَالقَاف',['ف','ق']],['رحلة ١١: الكَاف وَاللَّام',['ك','ل']],['رحلة ١٢: المِيم وَالنُّون',['م','ن']],['رحلة ١٣: الهَاء وَالوَاو وَاليَاء',['ه','و','ي']],['رحلة ١٤: الهَمْزَة وَالتَّاء المَرْبُوطَة',[]],['رحلة ١٥: مُرَاجَعَة الحُرُوف',[]],['رحلة ١٦: بَيْتِي وَأُسْرَتِي',[]],['رحلة ١٧: فِي المَسْجِد',[]],['رحلة ١٨: طَعَامِي',[]],['رحلة ١٩: الطَّبِيعَة حَوْلِي',[]],['رحلة ٢٠: مَدْرَسَتِي',[]],['رحلة ٢١: جُمَل قَصِيرَة',[]]]},
+ {id:'letters',name:'الحروف',desc:'كل حرف بأشكاله وحركاته وكلماته وصوته وقصة قصيرة.',target:'٢٨ حرفًا · ٥٠٠+ نشاط'},
+ {id:'sight',name:'الكلمات البصرية',desc:'أكثر الكلمات تكرارًا في نصوص الأطفال، تُقرأ بلمحة.',target:'١٠٠ كلمة · ١٠ مجموعات'},
+ {id:'exercises',name:'التمارين',desc:'تمارين تفاعلية وأوراق عمل للطباعة من الحرف إلى التصريف.',target:'١٠٠٠+ تمرين'},
+ {id:'listening',name:'الاستماع',desc:'اسمع وافهم: صفات وأماكن وحوارات وأسئلة.',target:'١٠٠ تمرين · ٩ أنماط'},
+ {id:'grammar',name:'القواعد',desc:'النحو المبسط بالأمثلة والتطبيق للمرحلة الابتدائية.',target:'٢٠٠+ تمرين'},
+ {id:'stories',name:'القصص',desc:'قصص مصورة ومسموعة في خمسة مستويات مع أسئلة فهم.',target:'٨٨ قصة · ٥ مستويات'},
+ {id:'texts',name:'النصوص',desc:'نصوص قراءة للأكبر سنًا، مصنفة بالموضوع والمستوى.',target:'٣ مستويات · بحث وتصفية'},
+ {id:'treasure',name:'الكنز',desc:'رصيدك وعملاتك وأوسمتك وسجل ما جمعت.',target:'محفظة آمنة'},
+ {id:'shop',name:'الدكان',desc:'ألعاب للمرح تفتحها بعملاتك، بإذن ولي الأمر.',target:'ألعاب مكافأة'},
+];
+
+// Lesson = data only. Engines read these fields; the content factory writes the same shape.
+function buildLessons(){
+  const L=[];
+  const pick=(arr,n,ex)=>shuffle(arr.filter(x=>!ex||!ex.includes(x))).slice(0,n);
+  ['ا','ب','ت','ث','ج'].forEach((l,i)=>{
+    const near = AR.filter(x=>x!==l);
+    L.push({id:`catch-${l}`,section:'games',group:i<2?0:i<4?1:2,letter:l,engine:'catch',title:`نجوم ${NAMES[l]}`,prompt:`اجمع النُّجُوم الَّتِي تَحْمِلُ حَرْفَ ${NAMES[l]}`,targets:[l,forms(l).ini,forms(l).fin].filter((v,j,a)=>a.indexOf(v)===j),distractors:pick(near,6),goal:10,speed:i<2?1:1.2,reward:10});
+    L.push({id:`jump-${l}`,section:'games',group:i<2?0:i<4?1:2,letter:l,engine:'jump',title:`حجارة النهر: ${NAMES[l]}`,prompt:`اقْفِزْ إِلَى كَلِمَةٍ تَبْدَأُ بِحَرْفِ ${NAMES[l]}`,targets:WORDS[l],distractors:OTHER_WORDS,goal:6,reward:12});
+    L.push({id:`mem-${l}`,section:'games',group:i<2?0:i<4?1:2,letter:l,engine:'memory',title:`ذاكرة أشكال ${NAMES[l]}`,prompt:`طابِقْ كُلَّ حَرْفٍ بِشَكْلِهِ`,pairs:memPairs(l),reward:8});
+    L.push({id:`listen-${l}`,section:'games',group:i<2?0:i<4?1:2,letter:l,engine:'listen',title:`اسمع واختر: ${NAMES[l]}`,prompt:`اسْتَمِعْ ثُمَّ اخْتَرِ الكَلِمَة`,items:WORDS[l].map(w=>({say:w,answer:w,options:[w,...pick(OTHER_WORDS,2)]})),reward:8});
+  });
+  L.push({id:'sight-1',section:'sight',engine:'listen',title:'لمحة: المجموعة الأولى',prompt:'اسْتَمِعْ ثُمَّ اخْتَرِ الكَلِمَة',items:SIGHT.slice(0,8).map(w=>({say:w,answer:w,options:[w,...pick(SIGHT.slice(0,10),2,[w])]})),reward:8});
+  return L;
+}
+function memPairs(l){ // each letter paired with one of its connected forms; six different letters so every match is unambiguous
+  const set=[l,...shuffle(AR.filter(x=>x!==l)).slice(0,5)];
+  return set.map(x=>{const f=forms(x);return [f.iso,NONJOIN.has(x)?f.fin:(Math.random()<.5?f.ini:f.fin)]});
+}
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+
+/* ============ state (prototype: per-browser; real build: Firestore + rules) ============ */
+const DEF = {role:'child',coins:140,stars:{'catch-ا':3,'jump-ا':2,'mem-ا':3},ledger:[
+  {t:Date.now()-86400000*2,label:'نجوم الأَلِف',amt:10,kind:'earn'},{t:Date.now()-86400000*2,label:'ذاكرة أشكال الأَلِف',amt:8,kind:'earn'},
+  {t:Date.now()-86400000,label:'وسام: أول ثلاث نجوم',amt:20,kind:'earn'},{t:Date.now()-86400000,label:'شراء: ألوان الفوانيس',amt:-40,kind:'spend'}],
+  owned:['lanterns'],shopLockUntil:0,rules:{games:5,letters:5,sight:5,exercises:3,listening:5,grammar:5,stories:10,texts:8},sfx:true,drafts:[]};
+let S = load();
+function load(){try{const v=JSON.parse(localStorage.getItem('silah-learn')||'null');if(v&&v.rules)return {...structuredClone(DEF),...v}}catch(e){}return structuredClone(DEF)}
+function save(){try{localStorage.setItem('silah-learn',JSON.stringify(S))}catch(e){}}
+let LESSONS = buildLessons();
+
+/* ============ sound: Web Audio, synthesized (no third-party files) ============ */
+let AC=null;
+function tone(seq){ if(!S.sfx) return; try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t0=AC.currentTime;
+  seq.forEach(([f,d,at,type='triangle',v=.18])=>{const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t0+at);g.gain.setValueAtTime(0,t0+at);g.gain.linearRampToValueAtTime(v,t0+at+.02);g.gain.exponentialRampToValueAtTime(.001,t0+at+d);o.connect(g).connect(AC.destination);o.start(t0+at);o.stop(t0+at+d+.05)});}catch(e){} }
+const SFX = {good:()=>tone([[660,.12,0],[880,.18,.09]]),bad:()=>tone([[220,.22,0,'sine',.2],[180,.25,.12,'sine',.16]]),coin:()=>tone([[988,.08,0,'square',.08],[1318,.22,.07,'square',.08]]),
+  win:()=>tone([[523,.15,0],[659,.15,.12],[784,.15,.24],[1046,.4,.36]]),jump:()=>tone([[300,.18,0,'sine',.14]]),flip:()=>tone([[520,.06,0,'sine',.1]]),splash:()=>tone([[140,.3,0,'sawtooth',.06]])};
+// Voice: browser Arabic voice as a stand-in until Silah records its own pronunciation set.
+function say(text){ try{ if(!('speechSynthesis' in window)) return false; speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='ar-SA'; u.rate=.8;
+  const v=speechSynthesis.getVoices().find(v=>/^ar/i.test(v.lang)); if(v) u.voice=v; speechSynthesis.speak(u); return !!v; }catch(e){return false} }
+
+/* ============ shell ============ */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=n=>Number(n).toLocaleString('ar-EG');
+function toast(m){const t=$('toast');t.firstElementChild.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2200)}
+function wallet(){$('coinBal').textContent=num(S.coins);$('coinIcon').innerHTML=SVG.coin(26)}
+let stopGame=null;
+document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{S.role=b.dataset.role;save();location.hash={child:'home',parent:'parent',teacher:'teacher',admin:'admin'}[S.role];route()});
+window.addEventListener('hashchange',route);
+function route(){
+  if(stopGame){stopGame();stopGame=null}
+  document.querySelectorAll('[data-role]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.role===S.role));
+  wallet();
+  let h=(location.hash||'#home').slice(1);try{h=decodeURIComponent(h)}catch(e){}
+  const v=$('view');
+  const [k,...rest]=h.split('-'); const arg=rest.join('-');
+  if(k==='section') v.innerHTML=viewSection(arg);
+  else if(k==='letter') v.innerHTML=viewLetter(arg);
+  else if(k==='play') return viewPlay(arg);
+  else if(k==='treasure') v.innerHTML=viewTreasure();
+  else if(k==='shop') v.innerHTML=viewShop();
+  else if(k==='parent') v.innerHTML=viewParent();
+  else if(k==='teacher') v.innerHTML=viewTeacher();
+  else if(k==='admin') {v.innerHTML=viewAdmin(); bindFactory();}
+  else v.innerHTML=viewHome();
+  bind(); window.scrollTo(0,0);
+}
+function bind(){
+  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.go});
+  document.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>{if(!say(b.dataset.say))toast('لا يوجد صوت عربي في هذا المتصفح. التسجيلات الأصلية ضمن المرحلة الثالثة.')});
+}
+const stars=n=>'★'.repeat(n)+'☆'.repeat(3-n);
+const sectionLink=id=>id==='treasure'?'treasure':id==='shop'?'shop':id==='letters'?'section-letters':'section-'+id;
+
+/* ============ child: home ============ */
+function viewHome(){
+  const next=LESSONS.find(l=>!S.stars[l.id])||LESSONS[0];
+  const done=Object.keys(S.stars).length;
+  return `
+  <section class="hero">
+    <div style="display:grid;gap:12px;position:relative;z-index:1">
+      <span class="tag gold" style="justify-self:start">مرحبًا يا مريم</span>
+      <h1>هيّا نتعلّم العربية مع نور</h1>
+      <p>نور فانوس صغير يضيء لك الطريق من الحرف إلى الكلمة إلى الجملة. العب، واجمع النجوم والعملات، وافتح ألعاب الدكان.</p>
+      <div class="continue">
+        <button class="btn red" data-go="play-${next.id}">تابع: ${esc(next.title)}</button>
+        <button class="btn ghost" data-go="section-letters">الحروف</button>
+      </div>
+      <div class="row" style="color:#D6DCF0;font-size:.9rem;gap:18px"><span>دروس مكتملة: <b style="color:#fff">${num(done)}</b></span><span>الرصيد: <b style="color:#fff">${num(S.coins)}</b> عملة</span></div>
+    </div>
+    <div class="hero-art">${SVG.nour()}</div>
+    <svg class="thread" viewBox="0 0 1000 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 200 0, 350 40, 520 18 S 860 6, 1000 26" fill="none" stroke="#C9A24B" stroke-width="2" opacity=".7"/></svg>
+  </section>
+  <section style="display:grid;gap:12px">
+    <div class="row"><h2 class="grow">الأقسام</h2><span class="muted" style="font-size:.85rem">الأقسام بإطار ذهبي فيها نشاط قابل للعب الآن</span></div>
+    <div class="sections">${SECTIONS.map(s=>{const p=sectionProgress(s.id);const live=['games','letters','sight','listening','stories','treasure','shop'].includes(s.id);return `
+      <button class="arch" data-go="${sectionLink(s.id)}" style="${live?'box-shadow:inset 0 0 0 2px var(--gold),var(--shadow)':''}">
+        <span class="ic" style="background:${BG[s.id]}">${ICON[s.id]}</span><b>${s.name}</b><small>${s.desc}</small>
+        ${p!==null?`<span class="bar" aria-label="التقدم"><i style="width:${p}%"></i></span>`:''}
+      </button>`}).join('')}</div>
+  </section>
+  <section class="grid2">
+    <div class="card" style="display:grid;gap:10px"><h3>مهمة اليوم من المعلمة</h3><p class="muted">أكمل «حجارة النهر: البَاء» قبل حصة الأحد.</p><button class="btn navy sm" style="justify-self:start" data-go="play-jump-ب">ابدأ المهمة</button></div>
+    <div class="card" style="display:grid;gap:10px"><div class="coinrow">${SVG.coin(48)}<div><div class="amt">${num(S.coins)}</div><span class="muted">عملة في كنزك</span></div></div><button class="btn gold sm" style="justify-self:start" data-go="shop">اذهب إلى الدكان</button></div>
+  </section>`;
+}
+function sectionProgress(id){const ls=LESSONS.filter(l=>l.section===id);if(!ls.length)return null;return Math.round(100*ls.filter(l=>S.stars[l.id]).length/ls.length)}
+
+/* ============ child: sections ============ */
+function head(s,extra=''){return `<button class="crumb" data-go="home">الرئيسية ›</button>
+  <div class="sec-head"><span class="ic" style="background:${BG[s.id]}">${ICON[s.id]}</span><div class="grow" style="min-width:0"><h1>${s.name}</h1><p class="muted">${s.desc}</p></div><span class="tag gold">الهدف: ${s.target}</span>${extra}</div>`}
+const ENG={catch:'التقاط',jump:'قفز',memory:'ذاكرة',listen:'استماع'};
+function lessonBtn(l){const st=S.stars[l.id]||0;return `<button class="lesson live" data-go="play-${l.id}"><span class="tag">${ENG[l.engine]}</span><b>${esc(l.title)}</b><span class="stars">${stars(st)}</span></button>`}
+function viewSection(id){
+  const s=SECTIONS.find(x=>x.id===id); if(!s) return viewHome();
+  if(id==='letters') return viewLetters(s);
+  if(id==='games') return head(s)+`<div class="groups">${s.groups.map(([g,ls],i)=>{const items=LESSONS.filter(l=>l.section==='games'&&l.group===i);
+    return `<details class="group" ${i===0?'open':''}><summary><span class="num">${num(i+1)}</span><div class="grow" style="min-width:0"><h3>${g}</h3><small class="muted">${items.length?`${num(items.length)} نشاط قابل للعب الآن`:'قيد الإنتاج في مصنع المحتوى'}</small></div>${items.length?`<span class="tag ok">جاهز للتجربة</span>`:`<span class="tag">قريبًا</span>`}</summary>
+    ${items.length?`<div class="lessons">${items.map(lessonBtn).join('')}</div>`:`<div class="lessons"><button class="lesson" disabled><b>${ls.length?ls.map(x=>NAMES[x]).join(' · '):'مفردات وجمل'}</b><small class="muted">تُبنى من نفس المحركات الأربعة</small></button></div>`}</details>`}).join('')}</div>`;
+  if(id==='sight') return head(s)+`<div class="card" style="display:grid;gap:12px"><h2>المجموعة الأولى</h2><div class="row">${SIGHT.slice(0,10).map(w=>`<button class="btn ghost" data-say="${w}" style="font-family:var(--display);font-size:1.3rem">${w}</button>`).join('')}</div>
+    <div class="row">${lessonBtn(LESSONS.find(l=>l.id==='sight-1'))}<button class="lesson" disabled><span class="tag">قراءة سريعة</span><b>بطاقة تظهر وتختفي</b><small class="muted">المرحلة الثانية</small></button><button class="lesson" disabled><span class="tag">اختبار إتقان</span><b>شهادة المجموعة</b><small class="muted">المرحلة الثانية</small></button></div></div>
+    <div class="grid3">${Array.from({length:9},(_,i)=>`<div class="card"><h3>المجموعة ${num(i+2)}</h3><p class="muted">١٠ كلمات · ٤ أنشطة · اختبار</p><span class="tag">قريبًا</span></div>`).join('')}</div>`;
+  if(id==='listening') return head(s)+`<div class="grid3">${['من أنا؟ صفات وأوصاف','اختر الصورة التي تسمعها','أين أنا؟ الأماكن','ماذا تقول؟ مواقف يومية','صِف ما تسمع','اختر الأشياء المذكورة','اختر المشهد','الحوار القصير','أسئلة بعد الاستماع'].map((t,i)=>`<div class="card" style="display:grid;gap:6px"><span class="tag">${i===1?'متاح الآن':'نمط '+num(i+1)}</span><h3>${t}</h3><p class="muted">مستويات متدرجة · دليل للمعلمة</p>${i===1?`<button class="btn navy sm" style="justify-self:start" data-go="play-listen-ب">جرّب</button>`:''}</div>`).join('')}</div>`;
+  if(id==='stories') return head(s)+storySample();
+  if(id==='texts') return head(s)+`<div class="card row"><div class="field grow"><label for="tq">ابحث في النصوص</label><input id="tq" placeholder="مثال: الصدق، الماء، الجيران"></div><div class="field"><label for="tl">المستوى</label><select id="tl"><option>كل المستويات</option><option>المستوى الأول</option><option>المستوى الثاني</option><option>المستوى الثالث</option></select></div><div class="field"><label for="tt">الموضوع</label><select id="tt"><option>كل الموضوعات</option><option>أخلاق</option><option>طبيعة</option><option>أسرة ومجتمع</option><option>علوم مبسطة</option></select></div></div>
+    <div class="grid3">${[['قطرة ماء مسافرة','طبيعة',1],['جارنا الجديد','أسرة ومجتمع',1],['الصدق نجاة','أخلاق',2],['لماذا يتغير القمر؟','علوم مبسطة',2],['رحلة إلى المكتبة','أسرة ومجتمع',3],['النحلة والزهرة','طبيعة',3]].map(([t,c,lv])=>`<div class="card" style="display:grid;gap:6px"><div class="row"><span class="tag">المستوى ${num(lv)}</span><span class="tag gold">${c}</span></div><h3>${t}</h3><p class="muted">نص أصلي · صح أو خطأ · اختيار من متعدد</p></div>`).join('')}</div><p class="muted">العناوين أعلاه أمثلة لنصوص صلة المخطط كتابتها، وليست منشورة بعد.</p>`;
+  const blurbs={exercises:[['الحروف والألوان','تلوين وكتابة الحروف، الحرف الناقص'],['أشكال الحروف','البحث عن الحرف في الكلمة'],['الكلمات','كلمات مبعثرة، الحرف الأول والأخير'],['الحروف المتشابهة نطقًا','س/ص، ت/ط، ذ/ز'],['التشكيل والمد','الفتحة والضمة والكسرة والمد'],['الأفعال والضمائر','الماضي والمضارع والأمر، الضمائر المتصلة']],
+    grammar:[['النكرة والمعرفة','تمييز «ال» التعريف'],['الجملة الاسمية','المبتدأ والخبر والمطابقة'],['الأسماء الموصولة','الذي، التي، اللذان'],['العدد','التذكير والتأنيث'],['المثنى والجمع','العلامات والإعراب'],['حروف الجر','في، من، على، إلى']]};
+  return head(s)+`<div class="grid3">${blurbs[id].map(([t,d],i)=>`<div class="card" style="display:grid;gap:6px"><span class="tag">وحدة ${num(i+1)}</span><h3>${t}</h3><p class="muted">${d}</p><div class="row"><span class="tag">تفاعلي</span><span class="tag">ورقة عمل للطباعة</span></div></div>`).join('')}</div><p class="muted">هذا القسم يُبنى في المرحلة الثانية بقوالب: اختيار، مطابقة، ترتيب، إكمال، تلوين، تصنيف.</p>`;
+}
+function viewLetters(s){
+  return head(s)+`<div class="letters">${AR.map(l=>`<button class="${LESSONS.some(x=>x.letter===l&&S.stars[x.id])?'done':''}" data-go="letter-${l}" aria-label="حرف ${NAMES[l]}">${l}</button>`).join('')}</div>`;
+}
+function viewLetter(l){
+  l=decodeURIComponent(l); if(!NAMES[l]) return viewHome();
+  const f=forms(l), ws=WORDS[l]||[], ls=LESSONS.filter(x=>x.letter===l);
+  const har=[['َ','فَتْحَة'],['ُ','ضَمَّة'],['ِ','كَسْرَة'],['ْ','سُكُون']];
+  return `<button class="crumb" data-go="section-letters">الحروف ›</button>
+  <div class="grid2">
+    <div class="card" style="display:grid;gap:14px"><div class="row"><h1 class="grow">حرف ${NAMES[l]}</h1><button class="btn red sm" data-say="${NAMES[l]}">${SVG.speaker().replace('<svg','<svg width="18" height="18"')} استمع</button></div>
+      <div class="forms">${[['iso','منفصل'],['ini','أول الكلمة'],['med','وسطها'],['fin','آخرها']].map(([k,t])=>`<div><b>${f[k]}</b><small>${t}</small></div>`).join('')}</div>
+      <h3>الحركات</h3><div class="forms">${har.map(([h,t])=>`<div><b>${l}${h}</b><small>${t}</small></div>`).join('')}</div></div>
+    <div class="card" style="display:grid;gap:12px"><h3>كلمات</h3>${ws.length?`<div class="row">${ws.map(w=>`<button class="btn ghost big-ar" data-say="${w}" style="padding:4px 14px">${w}</button>`).join('')}</div>`:'<p class="muted">تُضاف كلمات هذا الحرف من مصنع المحتوى.</p>'}
+      <h3>أنشطة الحرف</h3>${ls.length?`<div class="lessons" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">${ls.map(lessonBtn).join('')}</div>`:'<p class="muted">أنشطة هذا الحرف تُولَّد من القوالب نفسها في المرحلة الثالثة.</p>'}</div>
+  </div>`;
+}
+function storySample(){
+  return `<div class="row">${[1,2,3,4,5].map(n=>`<span class="tag ${n===1?'gold':''}">المستوى ${num(n)}</span>`).join('')}</div>
+  <div class="grid2"><div class="card" style="display:grid;gap:12px"><div class="row"><h2 class="grow">نور والأرنب الصغير</h2><button class="btn red sm" data-say="نُورٌ فَانُوسٌ صَغِيرٌ. يُحِبُّ نُورٌ أَنْ يُضِيءَ الطَّرِيقَ لِأَصْدِقَائِهِ. فِي لَيْلَةٍ مُظْلِمَةٍ، ضَلَّ أَرْنَبٌ صَغِيرٌ طَرِيقَهُ. أَضَاءَ نُورٌ، فَرَأَى الأَرْنَبُ بَيْتَهُ. قَالَ الأَرْنَبُ: شُكْرًا يَا نُورُ!">${SVG.speaker().replace('<svg','<svg width="18" height="18"')} استمع</button></div>
+    <div class="story">نُورٌ فَانُوسٌ صَغِيرٌ. يُحِبُّ نُورٌ أَنْ يُضِيءَ الطَّرِيقَ لِأَصْدِقَائِهِ.<br>فِي لَيْلَةٍ مُظْلِمَةٍ، ضَلَّ أَرْنَبٌ صَغِيرٌ طَرِيقَهُ.<br>أَضَاءَ نُورٌ، فَرَأَى الأَرْنَبُ بَيْتَهُ.<br>قَالَ الأَرْنَبُ: «شُكْرًا يَا نُورُ!»</div>
+    <p class="muted">قصة أصلية قصيرة لصلة، مثال على المستوى الأول. النص يحتاج مراجعة لغوية وتربوية قبل النشر.</p></div>
+  <div class="card" style="display:grid;gap:12px"><h3>سؤال فهم</h3><p class="big-ar">مَنْ ضَلَّ طَرِيقَهُ؟</p><div class="row" id="sq">${shuffle(['الأَرْنَبُ','نُورٌ','البَيْتُ']).map(a=>`<button class="btn ghost big-ar" data-ans="${a}">${a}</button>`).join('')}</div><p id="sqr" class="muted" aria-live="polite"></p></div></div>`;
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ans]');if(!b)return;const ok=b.dataset.ans==='الأَرْنَبُ';b.classList.add(ok?'right':'wrong');b.style.background=ok?'#DDF1E8':'#FBE1E9';$('sqr').textContent=ok?'أحسنت! الأرنب ضلّ طريقه.':'حاول مرة أخرى.';ok?SFX.good():SFX.bad()});
+
+/* ============ game shell: HUD, finish, rewards ============ */
+function viewPlay(id){
+  const l=(window.__preview&&window.__preview.id===id)?window.__preview:LESSONS.find(x=>x.id===decodeURIComponent(id));
+  if(!l){location.hash='home';return}
+  const total=l.engine==='catch'?l.goal:l.engine==='jump'?l.goal:l.engine==='memory'?l.pairs.length:l.items.length;
+  $('view').innerHTML=`<button class="crumb" data-go="${l.preview?'admin':'section-'+l.section}">${l.preview?'مصنع المحتوى':'رجوع'} ›</button>
+  <div class="stage" id="stage"><div class="hud"><button class="iconbtn" id="sayP" aria-label="اسمع التعليمات">${SVG.speaker().replace('<svg','<svg width="20" height="20"')}</button><div class="prompt" id="prompt">${esc(l.prompt)}</div>
+    <div class="dots" id="dots">${'<i></i>'.repeat(total)}</div><div class="hearts" id="hearts" aria-label="المحاولات"></div><button class="iconbtn" id="sfx" aria-label="المؤثرات الصوتية">${S.sfx?'♪':'✕'}</button></div>
+    <div id="game"></div></div>
+  <div class="legend"><span>المحرك: <b>${ENG[l.engine]}</b></span><span>المكافأة: حتى ${num(l.reward)} عملة</span><span>${l.engine==='catch'?'التحكم: اسحب بالإصبع أو الفأرة، أو الأسهم':l.engine==='jump'?'التحكم: المس الحجر الذي تريد القفز إليه، أو الأرقام ١ ٢ ٣':'التحكم: لمس أو نقر'}</span></div>`;
+  bind();
+  $('sayP').onclick=()=>say(l.prompt);
+  $('sfx').onclick=e=>{S.sfx=!S.sfx;save();e.currentTarget.textContent=S.sfx?'♪':'✕'};
+  const api={
+    progress:n=>[...$('dots').children].forEach((d,i)=>d.classList.toggle('on',i<n)),
+    hearts:n=>{$('hearts').textContent='♥'.repeat(Math.max(0,n))+'♡'.repeat(Math.max(0,3-n))},
+    prompt:t=>{$('prompt').textContent=t},
+    finish:r=>finish(l,r),
+  };
+  api.hearts(3);
+  const g=$('game');
+  const start=()=>{stopGame={catch:catchEngine,jump:jumpEngine,memory:memoryEngine,listen:listenEngine}[l.engine](g,l,api)};
+  intro(g,l,start);
+  window.scrollTo(0,0);
+}
+function intro(g,l,start){
+  g.innerHTML=`<div style="aspect-ratio:16/10;max-height:70vh;width:100%;background:var(--navy-deep)"></div><div class="overlay"><div class="panel"><div style="width:110px">${SVG.nour('wow')}</div><h2>${esc(l.title)}</h2><p class="big-ar" style="font-size:1.25rem;line-height:1.8">${esc(l.prompt)}</p><button class="btn red" id="go">ابدأ</button></div></div>`;
+  $('go').onclick=async()=>{say(l.prompt);try{await document.fonts.load('700 30px "Baloo Bhaijaan 2"')}catch(e){};g.innerHTML='';start()};
+}
+function finish(l,r){
+  if(stopGame){stopGame();stopGame=null}
+  const acc=r.total?r.correct/(r.correct+r.wrong||1):0;
+  const st=r.failed?0:acc>=.9?3:acc>=.7?2:1;
+  const prev=S.stars[l.id]||0;
+  // Coins: only for stars above the previous best, so replaying the same lesson cannot farm coins.
+  const earned=l.preview?0:Math.max(0,Math.round(l.reward*st/3)-Math.round(l.reward*prev/3));
+  if(!l.preview&&st>prev){S.stars[l.id]=st}
+  if(earned){S.coins+=earned;S.ledger.unshift({t:Date.now(),label:l.title,amt:earned,kind:'earn'});setTimeout(SFX.coin,500)}
+  save(); wallet();
+  st?SFX.win():SFX.bad();
+  const g=$('game'); const o=document.createElement('div'); o.className='overlay';
+  o.innerHTML=`<div class="panel"><div style="width:100px">${SVG.nour(st?'happy':'wow')}</div><h2>${st===3?'رائع جدًا!':st?'أحسنت!':'لا بأس، جرّب مرة أخرى'}</h2>
+    <div class="bigstars">${[1,2,3].map(i=>`<span class="${i<=st?'':'off'}">★</span>`).join('')}</div>
+    <p>صحيح: <b>${num(r.correct)}</b> · خطأ: <b>${num(r.wrong)}</b></p>
+    ${l.preview?'<span class="tag">معاينة: لا تُحتسب عملات</span>':earned?`<div class="row" style="justify-content:center">${SVG.coin(30)}<b style="font-size:1.3rem">+${num(earned)}</b></div>`:st?'<span class="tag">لا عملات إضافية: لم تتجاوز أفضل نتيجة سابقة</span>':''}
+    <div class="row" style="justify-content:center"><button class="btn red" id="again">العب مرة أخرى</button><button class="btn ghost" id="back">${l.preview?'رجوع للمصنع':'الدروس'}</button></div></div>`;
+  $('stage').appendChild(o);
+  $('again').onclick=()=>{o.remove();viewPlay(l.id)};
+  $('back').onclick=()=>{location.hash=l.preview?'admin':'section-'+l.section};
+}
+
+/* ============ ENGINE 1: catch (falling items, move a catcher) ============ */
+function catchEngine(root,cfg,api){
+  const cv=document.createElement('canvas'); root.appendChild(cv); const ctx=cv.getContext('2d');
+  let W,H,dpr; const fit=()=>{dpr=Math.min(2,window.devicePixelRatio||1);W=root.clientWidth;H=Math.min(Math.round(W*(W<600?1.15:.62)),Math.round(innerHeight*.72));cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)};
+  fit(); addEventListener('resize',fit);
+  const P={x:W/2,tx:W/2,w:Math.max(110,W*.16)}; let items=[],parts=[],spawn=0,caught=0,wrong=0,hearts=3,shake=0,t=0,done=false,last=performance.now(),raf;
+  const sky=[...Array(60)].map(()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.4+.3,p:Math.random()*6}));
+  const move=e=>{const r=cv.getBoundingClientRect();P.tx=(e.clientX-r.left)};
+  cv.addEventListener('pointermove',move); cv.addEventListener('pointerdown',move);
+  const keys={}; const kd=e=>{keys[e.key]=e.type==='keydown'}; addEventListener('keydown',kd); addEventListener('keyup',kd);
+  const R=()=>Math.max(26,Math.min(38,W*.045));
+  function addItem(){const isT=Math.random()<.42;const pool=isT?cfg.targets:cfg.distractors;const r=R();
+    items.push({x:r+Math.random()*(W-2*r),y:-r,r,ch:pool[Math.random()*pool.length|0],t:isT,vy:(H*.16+Math.random()*H*.08)*cfg.speed*(1+caught*.04),rot:Math.random()*6,sw:Math.random()*6})}
+  function star(x,y,r,rot){ctx.beginPath();for(let i=0;i<16;i++){const a=rot+i*Math.PI/8,rr=i%2?r*.74:r;ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}ctx.closePath()}
+  function burst(x,y,c){for(let i=0;i<16;i++){const a=Math.random()*Math.PI*2,s=60+Math.random()*140;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-60,l:.7,c})}}
+  function frame(now){const dt=Math.min(.033,(now-last)/1000);last=now;t+=dt;
+    if(keys.ArrowLeft)P.tx-=420*dt; if(keys.ArrowRight)P.tx+=420*dt;
+    P.tx=Math.max(P.w/2,Math.min(W-P.w/2,P.tx)); P.x+=(P.tx-P.x)*Math.min(1,dt*12);
+    spawn-=dt; if(spawn<=0&&!done){addItem();spawn=Math.max(.55,1.25-caught*.04)/cfg.speed}
+    const py=H-62;
+    items.forEach(it=>{it.y+=it.vy*dt;it.x+=Math.sin(t*1.5+it.sw)*12*dt;
+      if(!it.gone&&it.y+it.r*.6>py-8&&it.y<py+20&&Math.abs(it.x-P.x)<P.w/2){it.gone=true;
+        if(it.t){caught++;api.progress(caught);SFX.good();burst(it.x,it.y,'#E2C171')}else{wrong++;hearts--;api.hearts(hearts);SFX.bad();shake=.35;burst(it.x,it.y,'#C8174D')}}});
+    items=items.filter(it=>!it.gone&&it.y<H+it.r*2);
+    parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=300*dt;p.l-=dt});parts=parts.filter(p=>p.l>0);
+    // draw
+    ctx.save(); if(shake>0){shake-=dt;ctx.translate((Math.random()-.5)*10,0)}
+    const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0C2470');g.addColorStop(1,'#1236A0');ctx.fillStyle=g;ctx.fillRect(-10,0,W+20,H);
+    sky.forEach(s=>{ctx.globalAlpha=.4+.4*Math.sin(t*2+s.p);ctx.fillStyle='#F3E3B8';ctx.beginPath();ctx.arc(s.x*W,s.y*H*.8,s.r,0,7);ctx.fill()});ctx.globalAlpha=1;
+    // skyline of arches and domes (Silah city)
+    ctx.fillStyle='#0A1E5C';const base=H-30;
+    for(let x=-20;x<W+60;x+=120){ctx.beginPath();ctx.moveTo(x,base);ctx.lineTo(x,base-50);ctx.quadraticCurveTo(x+30,base-95,x+60,base-50);ctx.lineTo(x+60,base);ctx.fill();ctx.fillRect(x+70,base-80,12,80);ctx.beginPath();ctx.arc(x+76,base-80,8,Math.PI,0);ctx.fill()}
+    ctx.fillStyle='#081749';ctx.fillRect(0,base,W,30);
+    ctx.strokeStyle='rgba(201,162,75,.55)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,base+8);for(let x=0;x<=W;x+=20)ctx.lineTo(x,base+8+Math.sin(x/60+t)*4);ctx.stroke();
+    // items: gold stars with letters
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    items.forEach(it=>{ctx.save();ctx.shadowColor='rgba(243,227,184,.7)';ctx.shadowBlur=14;ctx.fillStyle='#E2C171';star(it.x,it.y,it.r,it.rot+t*.4);ctx.fill();ctx.restore();
+      ctx.fillStyle='#FFF6DC';ctx.beginPath();ctx.arc(it.x,it.y,it.r*.6,0,7);ctx.fill();
+      ctx.fillStyle='#0C2470';ctx.font=`800 ${it.r*.95}px "Baloo Bhaijaan 2",sans-serif`;ctx.fillText(it.ch,it.x,it.y+it.r*.08)});
+    // catcher: crescent boat carrying Nour's glow
+    const x=P.x,w=P.w;ctx.fillStyle='#C9A24B';ctx.beginPath();ctx.moveTo(x-w/2,py);ctx.quadraticCurveTo(x,py+58,x+w/2,py);ctx.quadraticCurveTo(x,py+30,x-w/2,py);ctx.fill();
+    ctx.strokeStyle='#F3E3B8';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-w/2+6,py+2);ctx.quadraticCurveTo(x,py+30,x+w/2-6,py+2);ctx.stroke();
+    const gl=ctx.createRadialGradient(x,py,4,x,py,w*.45);gl.addColorStop(0,'rgba(255,233,168,.35)');gl.addColorStop(1,'rgba(255,233,168,0)');ctx.fillStyle=gl;ctx.fillRect(x-w/2,py-w*.45,w,w*.45);
+    parts.forEach(p=>{ctx.globalAlpha=Math.max(0,p.l);ctx.fillStyle=p.c;ctx.fillRect(p.x-3,p.y-3,6,6)});ctx.globalAlpha=1;
+    ctx.restore();
+    if(!done&&caught>=cfg.goal){done=true;setTimeout(()=>api.finish({correct:caught,wrong,total:cfg.goal}),350)}
+    if(!done&&hearts<=0){done=true;setTimeout(()=>api.finish({correct:caught,wrong,total:cfg.goal,failed:true}),350)}
+    raf=requestAnimationFrame(frame)}
+  raf=requestAnimationFrame(frame);
+  return ()=>{cancelAnimationFrame(raf);removeEventListener('resize',fit);removeEventListener('keydown',kd);removeEventListener('keyup',kd)};
+}
+
+/* ============ ENGINE 2: jump (choose a stone, parabolic hop, sink on wrong) ============ */
+function jumpEngine(root,cfg,api){
+  const cv=document.createElement('canvas'); root.appendChild(cv); const ctx=cv.getContext('2d');
+  let W,H,dpr; const fit=()=>{dpr=Math.min(2,window.devicePixelRatio||1);W=root.clientWidth;H=Math.min(Math.round(W*(W<600?1.1:.56)),Math.round(innerHeight*.72));cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)};
+  fit(); addEventListener('resize',fit);
+  let round=0,correct=0,wrong=0,hearts=3,t=0,raf,last=performance.now(),done=false,busy=false;
+  const used=new Set();
+  const hero={x:0,y:0,fx:0,fy:0,tx:0,ty:0,k:1,sink:0,state:'idle'};
+  let stones=[],cam=0,camT=0;
+  const gap=()=>Math.max(150,W*.26);
+  const lane=i=>H*(.3+i*.22);
+  function newRound(){const tw=shuffle(cfg.targets.filter(w=>!used.has(w)))[0]||shuffle(cfg.targets)[0];used.add(tw);
+    const ds=shuffle(cfg.distractors).slice(0,2);const words=shuffle([tw,...ds]);const sx=-(round+1)*gap();
+    stones=stones.filter(s=>s.home);stones.push(...words.map((w,i)=>({x:sx,y:lane(i),w,ok:w===tw,sink:0})));}
+  function home(x,y){stones.push({x,y,w:'',home:true,sink:0})}
+  hero.x=hero.tx=0;hero.y=hero.ty=lane(1);home(0,lane(1));newRound();
+  // RTL: the river is crossed from right to left, camera follows.
+  const toScreen=x=>x-cam+W*.78;
+  function pick(s){if(busy||done||!s||s.home)return;busy=true;SFX.jump();hero.fx=hero.x;hero.fy=hero.y;hero.tx=s.x;hero.ty=s.y;hero.k=0;hero.target=s}
+  const click=e=>{const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    const s=stones.filter(s=>!s.home&&s.sink===0).find(s=>Math.abs(toScreen(s.x)-mx)<gap()*.42&&Math.abs(s.y-my)<H*.1);pick(s)};
+  cv.addEventListener('pointerdown',click);
+  const kd=e=>{const i='123١٢٣'.indexOf(e.key)%3;if(i>=0&&e.key.length===1){pick(stones.filter(s=>!s.home&&s.sink===0)[i])}};addEventListener('keydown',kd);
+  function land(){const s=hero.target;
+    if(s.ok){correct++;round++;api.progress(correct);SFX.good();s.home=true;stones.filter(o=>!o.home).forEach(o=>o.sink=.01);
+      stones.forEach(o=>{if(o.home&&o!==s)o.old=true});
+      if(correct>=cfg.goal){done=true;setTimeout(()=>api.finish({correct,wrong,total:cfg.goal}),600)}else setTimeout(()=>{newRound();busy=false},450)}
+    else{wrong++;hearts--;api.hearts(hearts);s.sink=.01;SFX.splash();setTimeout(SFX.bad,150);hero.state='sink';
+      setTimeout(()=>{const back=stones.filter(o=>o.home&&!o.old).pop();hero.state='idle';hero.x=back.x;hero.y=back.y;hero.k=1;s.gone=true;
+        if(hearts<=0){done=true;api.finish({correct,wrong,total:cfg.goal,failed:true})}else busy=false},900)}}
+  function frame(now){const dt=Math.min(.033,(now-last)/1000);last=now;t+=dt;
+    if(hero.k<1){hero.k=Math.min(1,hero.k+dt*1.8);const k=hero.k;hero.x=hero.fx+(hero.tx-hero.fx)*k;hero.y=hero.fy+(hero.ty-hero.fy)*k-Math.sin(Math.PI*k)*H*.22;if(hero.k>=1)land()}
+    camT=hero.x; cam+=(camT-cam)*Math.min(1,dt*3);
+    stones.forEach(s=>{if(s.sink>0&&s.sink<1)s.sink+=dt*1.4});
+    // draw river world
+    const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#DCEBFA');g.addColorStop(.22,'#DCEBFA');g.addColorStop(.22,'#7FB3C8');g.addColorStop(1,'#3E7FA0');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#BFD6CB';for(let i=-1;i<6;i++){const x=((i*260-cam*.3)%(W+260)+W+260)%(W+260)-130;ctx.beginPath();ctx.ellipse(x,H*.2,140,40,0,Math.PI,0);ctx.fill()}
+    ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=2;for(let r=0;r<7;r++){const y=H*.3+r*H*.1;ctx.beginPath();for(let x=0;x<=W;x+=16)ctx.lineTo(x,y+Math.sin((x+cam*.6)/40+t*2+r)*3);ctx.stroke()}
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    stones.forEach((s,i)=>{if(s.gone)return;const x=toScreen(s.x),y=s.y+(s.sink>0?Math.min(1,s.sink)*H*.18:0);if(x<-120||x>W+120)return;
+      const rw=Math.min(gap()*.42,90),rh=rw*.42;ctx.globalAlpha=s.sink>0&&!s.home?Math.max(0,1-s.sink):1;
+      ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(x,y+rh*.55,rw,rh*.5,0,0,7);ctx.fill();
+      ctx.fillStyle=s.home?'#C9A24B':'#F2EADC';ctx.beginPath();ctx.ellipse(x,y,rw,rh,0,0,7);ctx.fill();
+      ctx.strokeStyle=s.home?'#A8822F':'#D9CFBA';ctx.lineWidth=3;ctx.stroke();
+      if(s.w){ctx.fillStyle='#0C2470';ctx.font=`700 ${Math.min(30,rw*.42)}px "Baloo Bhaijaan 2",sans-serif`;ctx.fillText(s.w,x,y+2)}
+      if(!s.home&&!busy&&!done){ctx.fillStyle='#C8174D';ctx.font='700 13px "IBM Plex Sans Arabic",sans-serif';ctx.fillText(['١','٢','٣'][stones.filter(o=>!o.home&&o.sink===0).indexOf(s)]||'',x-rw+10,y-rh)}
+      ctx.globalAlpha=1});
+    // hero: Nour hopping
+    if(hero.state!=='sink'||Math.sin(t*20)>0){const x=toScreen(hero.x),y=hero.y-Math.min(gap()*.42,90)*.42-26;drawNour(ctx,x,y,Math.min(1,W/700)*.9+.25,hero.k<1)}
+    raf=requestAnimationFrame(frame)}
+  raf=requestAnimationFrame(frame);
+  return ()=>{cancelAnimationFrame(raf);removeEventListener('resize',fit);removeEventListener('keydown',kd)};
+}
+function drawNour(ctx,x,y,s,air){ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  ctx.fillStyle='#C9A24B';ctx.beginPath();ctx.moveTo(-14,-44);ctx.lineTo(0,-54);ctx.lineTo(14,-44);ctx.fill();
+  ctx.fillStyle='#1236A0';ctx.beginPath();ctx.moveTo(-22,-40);ctx.quadraticCurveTo(0,-46,22,-40);ctx.lineTo(25,12);ctx.quadraticCurveTo(0,18,-25,12);ctx.fill();
+  const g=ctx.createRadialGradient(0,-12,2,0,-12,24);g.addColorStop(0,'#FFE9A8');g.addColorStop(1,'#E2B44F');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-15,-34);ctx.quadraticCurveTo(0,-38,15,-34);ctx.lineTo(17,7);ctx.quadraticCurveTo(0,11,-17,7);ctx.fill();
+  ctx.fillStyle='#0C2470';ctx.beginPath();ctx.ellipse(-6,-16,3,air?4.5:3.6,0,0,7);ctx.ellipse(6,-16,3,air?4.5:3.6,0,0,7);ctx.fill();
+  ctx.strokeStyle='#0C2470';ctx.lineWidth=2.4;ctx.lineCap='round';ctx.beginPath();ctx.arc(0,-8,5,.2,Math.PI-.2);ctx.stroke();
+  ctx.fillStyle='#A8822F';ctx.fillRect(-24,10,48,7);
+  ctx.strokeStyle='#0C2470';ctx.lineWidth=5;ctx.beginPath();if(air){ctx.moveTo(-8,17);ctx.lineTo(-12,26);ctx.moveTo(8,17);ctx.lineTo(12,26)}else{ctx.moveTo(-8,17);ctx.lineTo(-8,28);ctx.moveTo(8,17);ctx.lineTo(8,28)}ctx.stroke();
+  ctx.restore()}
+
+/* ============ ENGINE 3: memory (flip pairs) ============ */
+function memoryEngine(root,cfg,api){
+  const cards=shuffle(cfg.pairs.flatMap((p,i)=>[{k:i,v:p[0]},{k:i,v:p[1]}]));
+  root.innerHTML=`<div class="memgrid" style="grid-template-columns:repeat(${cards.length>12?6:4},1fr)">${cards.map((c,i)=>`<button class="mcard" data-i="${i}" aria-label="بطاقة ${i+1}"><span class="in"><span class="b"></span><span class="f">${c.v}</span></span></button>`).join('')}</div>`;
+  let open=[],got=0,moves=0,wrong=0,lock=false;
+  root.querySelectorAll('.mcard').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(lock||b.classList.contains('flip')||b.classList.contains('got'))return;SFX.flip();b.classList.add('flip');open.push(i);
+    if(open.length===2){moves++;lock=true;const [a,c]=open;const A=root.querySelector(`[data-i="${a}"]`),C=root.querySelector(`[data-i="${c}"]`);
+      if(cards[a].k===cards[c].k&&a!==c){setTimeout(()=>{A.classList.add('got');C.classList.add('got');got++;api.progress(got);SFX.good();open=[];lock=false;
+        if(got===cfg.pairs.length)setTimeout(()=>api.finish({correct:got,wrong:Math.floor(wrong/2),total:got}),500)},350)}
+      else{wrong++;setTimeout(()=>{A.classList.remove('flip');C.classList.remove('flip');open=[];lock=false},800)}}});
+  $('hearts').textContent='';
+  return ()=>{};
+}
+/* ============ ENGINE 4: listen and choose ============ */
+function listenEngine(root,cfg,api){
+  let i=0,correct=0,wrong=0,miss=false;const items=shuffle(cfg.items);
+  function show(){const it=items[i];miss=false;
+    root.innerHTML=`<div class="speaker"><button id="play" aria-label="اسمع">${SVG.speaker()}</button></div><div class="choices">${shuffle(it.options).map(o=>`<button class="choice" data-o="${esc(o)}">${o}</button>`).join('')}</div><p id="nv" class="muted" style="text-align:center;padding:6px" hidden></p>`;
+    const p=()=>{if(!say(it.say)){const n=$('nv');if(!n)return;n.hidden=false;n.textContent='لا يوجد صوت عربي في هذا المتصفح، فالكلمة المطلوبة هي: '+it.say}};
+    $('play').onclick=p; setTimeout(p,300);
+    root.querySelectorAll('.choice').forEach(b=>b.onclick=()=>{if(b.dataset.o===it.answer){b.classList.add('right');SFX.good();if(!miss)correct++;else wrong++;api.progress(i+1);i++;
+        setTimeout(()=>i>=items.length?api.finish({correct,wrong,total:items.length}):show(),650)}
+      else{b.classList.add('wrong');SFX.bad();miss=true;setTimeout(()=>b.classList.remove('wrong'),400)}})}
+  show(); $('hearts').textContent='';
+  return ()=>{try{speechSynthesis.cancel()}catch(e){}};
+}
+
+/* ============ treasure and shop ============ */
+const BADGES=[['أول نجمة',1],['ثلاث نجوم كاملة',3],['صديق الحروف',5],['قارئ صغير',8],['بطل الاستماع',12],['جامع العملات',200]];
+const SHOP=[['lanterns','ألوان الفوانيس','لوّن فانوس نور بألوانك',40,'#F3E3B8'],['crescent','سباق الهلال','قارب الهلال يتجنب الغيوم',60,'#DCEBFA'],['maze','متاهة النجوم','اجمع النجوم في المتاهة',80,'#DDEBE3'],['builder','ابنِ مدينتك','أقواس وقباب وحدائق',120,'#FBE1E9']];
+function viewTreasure(){
+  const nStars=Object.values(S.stars).reduce((a,b)=>a+b,0);
+  return `<button class="crumb" data-go="home">الرئيسية ›</button>
+  <div class="grid2"><div class="card" style="display:grid;gap:14px;justify-items:center;text-align:center"><div style="width:min(260px,80%)">${SVG.chest()}</div><div class="coinrow">${SVG.coin(44)}<span class="amt">${num(S.coins)}</span></div><p class="muted">نجوم: ${num(nStars)} · دروس مكتملة: ${num(Object.keys(S.stars).length)}</p><button class="btn red" data-go="shop">اذهب إلى الدكان</button></div>
+  <div class="card" style="display:grid;gap:12px"><h2>أوسمتي</h2><div class="badges">${BADGES.map(([n,need],i)=>{const have=i===5?S.coins>=need:nStars>=need;return `<div class="badge ${have?'':'locked'}"><svg viewBox="0 0 48 48"><path d="M24 3l5.6 10.4 11.6-2.3-2.3 11.6L49 28l-10.1 5.6 2.3 11.6-11.6-2.3L24 53" fill="none"/><circle cx="24" cy="24" r="18" fill="${have?'#C9A24B':'#ccc'}"/><circle cx="24" cy="24" r="13" fill="${have?'#0C2470':'#999'}"/><path d="M24 15l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" fill="#F3E3B8"/></svg><b style="font-size:.85rem">${n}</b></div>`}).join('')}</div></div></div>
+  <div class="card" style="display:grid;gap:10px"><h2>سجل العمليات</h2><div class="tscroll"><table><thead><tr><th>التاريخ</th><th>العملية</th><th>المبلغ</th></tr></thead><tbody>${S.ledger.slice(0,12).map(e=>`<tr><td>${new Date(e.t).toLocaleDateString('ar-EG',{day:'numeric',month:'long'})}</td><td>${esc(e.label)}</td><td class="num" style="color:${e.amt>0?'var(--ok)':'var(--crimson)'}">${e.amt>0?'+':''}${num(e.amt)}</td></tr>`).join('')}</tbody></table></div>
+  <p class="muted" style="font-size:.85rem">في النسخة الحقيقية يُكتب السجل في قاعدة البيانات وتتحقق منه القواعد، ولا يستطيع المتصفح تعديل الرصيد مباشرة.</p></div>`;
+}
+function viewShop(){
+  const locked=S.shopLockUntil>Date.now();
+  return `${head(SECTIONS[9])}
+  ${locked?`<div class="lockbanner">${ICON.shop.replace('<svg','<svg width="40" height="40"')}<div><b>الدكان مغلق الآن بقرار ولي الأمر</b><div>يفتح ${new Date(S.shopLockUntil).toLocaleString('ar-EG',{weekday:'long',hour:'numeric',minute:'2-digit'})}. أكمل دروسك وستجد عملاتك في انتظارك.</div></div></div>`:''}
+  <div class="grid3">${SHOP.map(([id,n,d,p,bg])=>{const own=S.owned.includes(id);return `<div class="shopitem"><div class="art" style="background:${bg}">${id==='lanterns'?SVG.nour():ICON[id==='crescent'?'games':id==='maze'?'treasure':'shop']}</div><h3>${n}</h3><p class="muted" style="font-size:.88rem">${d}</p>
+    ${own?'<span class="tag ok">مفتوحة لك</span>':`<button class="btn ${S.coins>=p&&!locked?'gold':'ghost'}" data-buy="${id}" ${locked||S.coins<p?'disabled':''}>${SVG.coin(20)} ${num(p)}</button>`}</div>`}).join('')}</div>
+  <p class="muted">ألعاب الدكان للمرح فقط وتُفتح بالعملات المكتسبة من التعلّم. لا يوجد أي شراء بمال حقيقي.</p>`;
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-buy]');if(!b||b.disabled)return;const it=SHOP.find(x=>x[0]===b.dataset.buy);
+  if(S.shopLockUntil>Date.now()||S.coins<it[3])return;S.coins-=it[3];S.owned.push(it[0]);S.ledger.unshift({t:Date.now(),label:'شراء: '+it[1],amt:-it[3],kind:'spend'});save();SFX.coin();toast('فُتحت «'+it[1]+'»');route()});
+
+/* ============ parent ============ */
+function viewParent(){
+  const locked=S.shopLockUntil>Date.now();
+  const bySec=SECTIONS.slice(0,8).map(s=>[s.name,sectionProgress(s.id)]);
+  return `<div class="row"><h1 class="grow">متابعة الأبناء</h1><div class="roles" style="margin:0"><button aria-pressed="true">مريم</button><button aria-pressed="false">يوسف</button></div></div>
+  <div class="grid3">${[['دروس مكتملة',num(Object.keys(S.stars).length)],['النجوم',num(Object.values(S.stars).reduce((a,b)=>a+b,0))],['الرصيد',num(S.coins)+' عملة'],['وقت التعلم هذا الأسبوع','٤٢ دقيقة']].map(([k,v])=>`<div class="card"><span class="muted" style="font-size:.85rem">${k}</span><div style="font-family:var(--display);font-size:1.8rem;color:var(--navy-deep)">${v}</div></div>`).join('')}</div>
+  <div class="grid2"><div class="card" style="display:grid;gap:10px"><h2>التقدم حسب القسم</h2>${bySec.map(([n,p])=>`<div><div class="row"><span class="grow">${n}</span><span class="muted">${p===null?'لم يبدأ':num(p)+'٪'}</span></div><span class="bar"><i style="width:${p||0}%"></i></span></div>`).join('')}</div>
+  <div class="card" style="display:grid;gap:10px"><h2>آخر النتائج</h2><div class="tscroll"><table><thead><tr><th>الدرس</th><th>النجوم</th></tr></thead><tbody>${Object.entries(S.stars).map(([id,s])=>{const l=LESSONS.find(x=>x.id===id);return l?`<tr><td>${esc(l.title)}</td><td style="color:var(--gold)">${stars(s)}</td></tr>`:''}).join('')}</tbody></table></div>
+    <h3>مهارات متقنة</h3><div class="row">${Object.entries(S.stars).filter(([,s])=>s===3).map(([id])=>`<span class="tag ok">${esc((LESSONS.find(x=>x.id===id)||{}).title||id)}</span>`).join('')||'<span class="muted">لا شيء بعد</span>'}</div></div></div>
+  <div class="grid2"><div class="card" style="display:grid;gap:12px"><h2>الدكان</h2>
+    <p class="muted">${locked?'الدكان مغلق حتى '+new Date(S.shopLockUntil).toLocaleString('ar-EG',{weekday:'long',hour:'numeric',minute:'2-digit'}):'الدكان مفتوح الآن.'}</p>
+    <div class="row"><div class="field grow"><label for="lockD">أغلق الدكان لمدة</label><select id="lockD"><option value="1">ساعة</option><option value="24" selected>يوم</option><option value="72">ثلاثة أيام</option><option value="168">أسبوع</option></select></div>
+    <button class="btn navy" id="lockBtn" style="align-self:end">${locked?'تمديد الإغلاق':'أغلق الدكان'}</button>${locked?'<button class="btn ghost" id="unlockBtn" style="align-self:end">افتح الآن</button>':''}</div></div>
+  <div class="card" style="display:grid;gap:12px"><h2>عملات كل قسم</h2><p class="muted" style="font-size:.88rem">كم عملة يكسب الطفل عند إكمال نشاط في كل قسم.</p>
+    <div class="form">${Object.entries(S.rules).map(([k,v])=>`<div class="field"><label for="r-${k}">${SECTIONS.find(s=>s.id===k).name}</label><input id="r-${k}" type="number" min="0" max="20" value="${v}" data-rule="${k}"></div>`).join('')}</div></div></div>
+  <div class="card row"><div class="grow"><h2>الاشتراك التعليمي</h2><p class="muted">يرتبط بباقة صلة الحالية في البوابة دون أي دفع جديد داخل هذا القسم. التفعيل والإيقاف من الإدارة.</p></div><span class="tag ok">مفعل ضمن باقة صلة</span></div>`;
+}
+document.addEventListener('click',e=>{if(e.target.id==='lockBtn'){S.shopLockUntil=Math.max(Date.now(),S.shopLockUntil)+(+$('lockD').value)*3600000;save();toast('أُغلق الدكان');route()}
+  if(e.target.id==='unlockBtn'){S.shopLockUntil=0;save();toast('فُتح الدكان');route()}});
+document.addEventListener('change',e=>{if(e.target.dataset.rule){S.rules[e.target.dataset.rule]=Math.max(0,Math.min(20,+e.target.value||0));save();toast('حُفظ')}});
+
+/* ============ teacher ============ */
+function viewTeacher(){
+  const kids=['مريم','يوسف','آدم','سارة','عمر'];const ls=['ا','ب','ت','ث','ج'];
+  const acc=[[95,88,70,60,40],[90,72,55,80,65],[98,93,90,85,70],[70,45,50,62,30],[85,80,78,74,66]];
+  const col=v=>v>=85?'#DDF1E8':v>=65?'#FBEFD2':'#FBE1E9';
+  return `<div class="row"><h1 class="grow">فصل الأستاذة هدى · المستوى الأول</h1><span class="tag">٥ طلاب</span></div>
+  <div class="grid2"><div class="card" style="display:grid;gap:12px"><h2>إسناد واجب</h2><div class="form">
+    <div class="field"><label for="as-l">النشاط</label><select id="as-l">${LESSONS.filter(l=>l.section==='games').map(l=>`<option value="${l.id}">${esc(l.title)}</option>`).join('')}</select></div>
+    <div class="field"><label for="as-k">إلى</label><select id="as-k"><option>كل الفصل</option>${kids.map(k=>`<option>${k}</option>`).join('')}</select></div>
+    <div class="field"><label for="as-d">الموعد</label><input id="as-d" type="date" value="2026-11-30"></div></div><button class="btn red" style="justify-self:start" id="assign">أسند الواجب</button>
+    <div id="asList" class="row"><span class="tag">حجارة النهر: البَاء · كل الفصل · ٢٩ نوفمبر</span></div></div>
+  <div class="card" style="display:grid;gap:10px"><h2>نقاط الضعف حسب الحرف</h2><p class="muted" style="font-size:.88rem">نسبة الإجابات الصحيحة في آخر أسبوعين.</p><div class="tscroll"><table class="heat"><thead><tr><th></th>${ls.map(l=>`<th style="text-align:center">${l}</th>`).join('')}</tr></thead><tbody>${kids.map((k,i)=>`<tr><th>${k}</th>${acc[i].map(v=>`<td style="background:${col(v)};font-size:.9rem;font-family:var(--body);font-weight:700">${num(v)}٪</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+  <p class="muted" style="font-size:.85rem">الثاء أضعف حرف في الفصل. اقتراح: «ذاكرة أشكال الثَّاء» لسارة وآدم.</p></div></div>
+  <p class="muted">الأرقام في هذه الشاشة أمثلة توضيحية للتصميم.</p>`;
+}
+document.addEventListener('click',e=>{if(e.target.id!=='assign')return;const l=LESSONS.find(x=>x.id===$('as-l').value);const s=document.createElement('span');s.className='tag gold';s.textContent=`${l.title} · ${$('as-k').value} · ${$('as-d').value}`;$('asList').prepend(s);toast('أُسند الواجب')});
+
+/* ============ admin: content factory ============ */
+function viewAdmin(){
+  return `<div class="row"><h1 class="grow">مصنع المحتوى</h1><span class="tag">للإدارة فقط</span></div>
+  <p class="muted">كل درس بيانات فقط. اختر القالب والحرف والكلمات والمكافأة، ثم عاين اللعبة قبل الحفظ. المحرك نفسه يشغّل مئات الدروس.</p>
+  <div class="flow"><span class="on">مسودة</span>›<span>مراجعة لغوية</span>›<span>مراجعة تربوية</span>›<span>معتمد</span>›<span>منشور</span></div>
+  <div class="grid2"><div class="card" style="display:grid;gap:12px"><div class="form">
+    <div class="field"><label for="f-eng">قالب اللعبة</label><select id="f-eng"><option value="catch">التقاط النجوم</option><option value="jump">حجارة النهر</option><option value="memory">الذاكرة</option><option value="listen">اسمع واختر</option></select></div>
+    <div class="field"><label for="f-l">الحرف أو المهارة</label><select id="f-l">${AR.map(l=>`<option value="${l}">${NAMES[l]}</option>`).join('')}</select></div>
+    <div class="field full"><label for="f-t">الإجابات الصحيحة (افصل بفاصلة)</label><input id="f-t"></div>
+    <div class="field full"><label for="f-d">المشتتات</label><input id="f-d"></div>
+    <div class="field"><label for="f-lv">الصعوبة</label><select id="f-lv"><option value="1">سهل</option><option value="1.25">متوسط</option><option value="1.5">صعب</option></select></div>
+    <div class="field"><label for="f-r">المكافأة (عملات)</label><input id="f-r" type="number" min="0" max="30" value="10"></div>
+    <div class="field full"><label for="f-p">التعليمات للطفل</label><input id="f-p"></div>
+    <div class="field full"><label for="f-img">صورة أو صوت (اختياري)</label><input id="f-img" type="file" accept="image/*,audio/*"></div></div>
+    <div class="row"><button class="btn red" id="f-prev">عاين اللعبة</button><button class="btn ghost" id="f-save">احفظ مسودة</button><button class="btn ghost" id="f-rev">أرسل للمراجعة</button></div></div>
+  <div class="card" style="display:grid;gap:10px;min-width:0"><h3>بيانات الدرس كما تُحفظ</h3><pre class="json" id="f-json"></pre><h3>المسودات</h3><div id="f-drafts" class="row">${S.drafts.map(d=>`<span class="tag ${d.status==='review'?'warn':''}">${esc(d.title)} · ${d.status==='review'?'بانتظار المراجعة':'مسودة'}</span>`).join('')||'<span class="muted">لا مسودات بعد</span>'}</div></div></div>
+  <div class="grid3">${[['الدروس المنشورة','٢١'],['بانتظار المراجعة','٣'],['أطفال نشطون هذا الأسبوع','٣٨'],['عملات صُرفت هذا الشهر','١٬٢٤٠']].map(([k,v])=>`<div class="card"><span class="muted" style="font-size:.85rem">${k}</span><div style="font-family:var(--display);font-size:1.8rem;color:var(--navy-deep)">${v}</div><small class="muted">مثال توضيحي</small></div>`).join('')}</div>`;
+}
+function bindFactory(){
+  const fill=()=>{const l=$('f-l').value,e=$('f-eng').value;
+    $('f-t').value=e==='catch'?[...new Set([l,forms(l).ini,forms(l).fin])].join('، '):(WORDS[l]||['اكتب الكلمات هنا']).join('، ');
+    $('f-d').value=e==='catch'?shuffle(AR.filter(x=>x!==l)).slice(0,6).join('، '):OTHER_WORDS.slice(0,8).join('، ');
+    $('f-p').value=e==='catch'?`اجمع النُّجُوم الَّتِي تَحْمِلُ حَرْفَ ${NAMES[l]}`:e==='jump'?`اقْفِزْ إِلَى كَلِمَةٍ تَبْدَأُ بِحَرْفِ ${NAMES[l]}`:e==='memory'?'طابِقْ كُلَّ حَرْفٍ بِشَكْلِهِ':'اسْتَمِعْ ثُمَّ اخْتَرِ الكَلِمَة';json()};
+  const split=s=>s.split(/[،,]/).map(x=>x.trim()).filter(Boolean);
+  const lesson=()=>{const l=$('f-l').value,e=$('f-eng').value,T=split($('f-t').value),D=split($('f-d').value);
+    const base={id:'preview-'+e+'-'+l,section:'games',letter:l,engine:e,title:'معاينة: '+NAMES[l],prompt:$('f-p').value,reward:+$('f-r').value||0,preview:true};
+    if(e==='catch')return {...base,targets:T,distractors:D,goal:10,speed:+$('f-lv').value};
+    if(e==='jump')return {...base,targets:T,distractors:D,goal:Math.min(6,Math.max(3,T.length+2))};
+    if(e==='memory')return {...base,pairs:memPairs(l)};
+    return {...base,items:T.map(w=>({say:w,answer:w,options:[w,...shuffle(D).slice(0,2)]}))}};
+  const json=()=>{const o=lesson();$('f-json').textContent=JSON.stringify({...o,preview:undefined,id:undefined,status:'draft'},null,2)};
+  ['f-eng','f-l'].forEach(id=>$(id).onchange=fill);['f-t','f-d','f-lv','f-r','f-p'].forEach(id=>$(id).oninput=json);
+  $('f-prev').onclick=()=>{const o=lesson();if(o.engine!=='memory'&&!(o.targets||o.items||[]).length)return toast('أضف إجابة صحيحة واحدة على الأقل');window.__preview=o;location.hash='play-'+o.id};
+  const keep=st=>{const o=lesson();S.drafts.unshift({title:o.title.replace('معاينة: ','')+' · '+ENG[o.engine],status:st});save();toast(st==='review'?'أُرسل للمراجعة':'حُفظت المسودة');route()};
+  $('f-save').onclick=()=>keep('draft');$('f-rev').onclick=()=>keep('review');
+  fill();
+}
+route();
+</script>
