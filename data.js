@@ -165,8 +165,8 @@ function seed() {
     payAdj: { a1: { teacherId: 'sara', month: thisMonth(), kind: 'bonus', amount: 150, reason: 'تغطية حصص زميلة', at: Date.now() } },
     payroll: {},
     registrations: {
-      r1: { parentName: 'أم ريان', studentName: 'ريان', studentAge: 7, country: 'ألمانيا', whatsapp: '+49 151 000 0000', course: 'quran', preferredTime: 'evening', notes: 'يقرأ الفاتحة وقصار السور', status: 'new', source: 'site', at: Date.now() - 3600e3 },
-      r2: { parentName: 'أم جود', studentName: 'جود', studentAge: 5, country: 'تركيا', whatsapp: '+90 555 000 11 22', course: 'arabic', preferredTime: 'morning', notes: '', status: 'contacted', source: 'site', at: Date.now() - 86400e3 },
+      r1: { parentName: 'أم ريان', studentName: 'ريان', studentAge: 7, country: 'ألمانيا', whatsapp: '+49 151 000 0000', course: 'quran', preferredTime: 'evening', notes: 'يقرأ الفاتحة وقصار السور', status: 'new', source: 'instagram', at: Date.now() - 3600e3 },
+      r2: { parentName: 'أم جود', studentName: 'جود', studentAge: 5, country: 'تركيا', whatsapp: '+90 555 000 11 22', course: 'arabic', preferredTime: 'morning', notes: '', status: 'contacted', source: 'friend', at: Date.now() - 86400e3 },
       r3: { parentName: 'أبو عمر', studentName: 'عمر', studentAge: 10, country: 'كندا', whatsapp: '+1 416 000 0000', course: 'tajweed', preferredTime: 'night', notes: 'يحفظ جزء عم', status: 'trial', source: 'site', at: Date.now() - 3 * 86400e3 },
     },
     teacherRates: { sara: { hourRate: 80 }, omar: { hourRate: 100 }, huda: { hourRate: 80 } },

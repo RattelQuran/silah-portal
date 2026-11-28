@@ -509,6 +509,7 @@ async function deleteStudent(sid, btn) {
 /* ================= REGISTRATIONS (from the public site) ================= */
 const REG_ST = { new: ['جديد', 'miss'], contacted: ['تم التواصل', 'late'], trial: ['حُجزت الحصة التعريفية', 'tab'], enrolled: ['اشترك', 'ok'], lost: ['لم يكمل', 'exc'] };
 const REG_COURSE = { quran: 'القرآن الكريم', tajweed: 'التجويد', arabic: 'اللغة العربية' };
+const REG_SRC = { instagram: 'إنستجرام', tiktok: 'تيك توك', threads: 'ثريدز', friend: 'صديقة أو قريبة', search: 'بحث جوجل', other: 'غير ذلك', site: 'الموقع (قبل سؤال المصدر)' };
 const REG_TIME = { morning: 'صباحًا (8 - 12)', noon: 'ظهرًا (12 - 4)', evening: 'مساءً (4 - 8)', night: 'ليلًا (8 - 11)' };
 const SITE_URL = 'https://rattelquran.github.io/silah/';
 function viewRegs() {
@@ -522,7 +523,7 @@ function viewRegs() {
     const hello = `السلام عليكم ${r.parentName || ''}، معك أكاديمية صلة 🌿 وصلنا طلبك لحصة تعريفية مجانية لـ${r.studentName || 'طفلك'} في ${REG_COURSE[r.course] || 'القرآن الكريم'}. متى يناسبك موعد الحصة؟`;
     return `<article class="card">
     <div class="row"><div class="who"><b>${esc(r.studentName || '—')}${r.studentAge ? ' · ' + esc(r.studentAge) + ' سنوات' : ''}</b><span>ولي الأمر: ${esc(r.parentName || '—')}${r.country ? ' · ' + esc(r.country) : ''}</span></div>${chip(st[0], st[1])}</div>
-    <div class="chips">${chip(REG_COURSE[r.course] || r.course || '—')}${chip('التواصل: ' + (REG_TIME[r.preferredTime] || r.preferredTime || '—'))}${r.at ? chip(fmtDate(new Date(r.at).toISOString().slice(0, 10))) : ''}</div>
+    <div class="chips">${chip(REG_COURSE[r.course] || r.course || '—')}${chip('التواصل: ' + (REG_TIME[r.preferredTime] || r.preferredTime || '—'))}${chip('عرفتنا من: ' + (REG_SRC[r.source] || r.source || '—'))}${r.at ? chip(fmtDate(new Date(r.at).toISOString().slice(0, 10))) : ''}</div>
     ${r.notes ? `<span class="sub">${esc(r.notes)}</span>` : ''}
     <div class="bar" style="margin:0">${wl ? `<a class="btn wa sm" href="${wl}?text=${encodeURIComponent(hello)}" target="_blank" rel="noopener">واتساب <span dir="ltr">${esc(r.whatsapp)}</span></a>` : `<span class="note" dir="ltr">${esc(r.whatsapp || '')}</span>`}
       <label class="note" style="display:flex;gap:6px;align-items:center">الحالة <select data-regst="${r.id}" style="width:auto">${Object.entries(REG_ST).map(([k, [l]]) => `<option value="${k}" ${(r.status || 'new') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
