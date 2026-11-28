@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>ألعاب صلة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@500;600&display=swap">
+<style>
+:root{--navy-deep:#0C2470;--navy:#1236A0;--crimson:#C8174D;--gold:#C9A24B;--gold-hi:#E2C171;--cream:#FBF7F0;--ink:#14213D;--frame:#5E6678}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--frame);overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;color:var(--ink)}
+#refRoot{position:fixed;inset:0}
+.refmsg{color:#fff;text-align:center;margin-top:40vh;font-size:20px}
+.ref-scale{position:absolute;left:50%;top:50%;width:1024px;height:768px;transform-origin:50% 50%}
+.ref-stage{position:absolute;inset:0;overflow:hidden;background:var(--cream)}
+.ref-stage *{position:absolute}
+.ref-bg{inset:0;background-size:cover;background-position:center}
+.ref-layer{inset:0;transition:opacity .5s}
+.ref-layer.fadeout{opacity:0}
+/* tap to start */
+.ref-start{inset:0;background:var(--navy);display:block;cursor:pointer;z-index:20}
+.ref-glow{left:50%;top:50%;width:200px;height:200px;margin:-100px 0 0 -100px;border-radius:50%;background:radial-gradient(circle,var(--gold-hi) 0 38%,rgba(226,193,113,.55) 55%,rgba(226,193,113,0) 72%);animation:glow 1.4s ease-in-out infinite}
+.ref-hand{left:50%;top:50%;width:96px;height:96px;margin:-44px 0 0 -48px}
+.ref-hand svg,.ref-hint svg{position:static;width:100%;height:100%}
+@keyframes glow{50%{transform:scale(1.12)}}
+/* title card */
+.ref-card{left:160px;top:134px;width:704px;height:500px;background:#fff;border:5px solid var(--ink);border-radius:26px;z-index:15;display:block}
+.ref-card p{position:static;margin:96px 36px 0;text-align:center;white-space:nowrap;font:700 40px/1.5 'Baloo Bhaijaan 2',sans-serif;color:var(--ink)}
+.ref-card.out{animation:cardOut .35s ease-in forwards}
+@keyframes cardOut{to{transform:scale(.6);opacity:0}}
+.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes pop{from{transform:scale(.2);opacity:0}}
+/* curtain */
+.ref-curtain{left:0;top:0;width:100%;height:100%;z-index:30;transform:translateX(100%);transition:transform 1s cubic-bezier(.5,0,.3,1);
+  background:repeating-linear-gradient(90deg,var(--crimson) 0 64px,var(--cream) 64px 128px)}
+.ref-curtain.in{transform:none}
+.ref-again{left:362px;top:334px;width:300px;height:100px;z-index:31;border:0;border-radius:50px;background:var(--navy-deep);color:#fff;font:700 38px/1 'Baloo Bhaijaan 2',sans-serif;cursor:pointer;box-shadow:0 8px 0 rgba(0,0,0,.25)}
+/* pointing hint */
+.ref-hint{z-index:12;pointer-events:none;animation:hintUp 1s ease-in-out infinite}
+.ref-hint.left{animation-name:hintLeft}
+@keyframes hintUp{50%{transform:translateY(-14px)}}
+@keyframes hintLeft{50%{transform:translateX(-14px)}}
+.ref-hint .rays{animation:rays 1s ease-in-out infinite}
+@keyframes rays{50%{opacity:.25}}
+
+/* ---- G-001 letters on bushes ---- */
+.lob-big{left:312px;top:60px;width:400px;height:240px;text-align:center;font:800 190px/240px 'Baloo Bhaijaan 2',sans-serif;color:var(--crimson);z-index:6}
+.lob-big.out{transition:transform .45s ease-in,opacity .45s;transform:translateY(-60px) scale(.5);opacity:0}
+.lob-plant{z-index:2;animation:grow .55s cubic-bezier(.2,1.4,.4,1) var(--d) both;cursor:pointer}
+@keyframes grow{from{transform:translateY(120px) scaleY(.3);opacity:0}}
+.lob-plant .lob-crown{left:0;top:0;width:100%}
+.lob-plant.trees .lob-crown{height:170px}
+.lob-plant.shrubs .lob-crown{height:100%}
+.lob-crown img{left:0;top:0;width:100%;height:auto;transition:opacity .25s}
+.lob-plant.trees .lob-crown img{height:208px;width:170px;object-fit:contain;object-position:top}
+.lob-crown .happy{opacity:0}
+.lob-plant.got .happy{opacity:1}.lob-plant.got .plain{opacity:0}
+.lob-plant.got .lob-crown{animation:joy .5s ease}
+@keyframes joy{40%{transform:scale(1.12,.92)}70%{transform:scale(.96,1.05)}}
+.lob-trunk{left:calc(50% - 9px);top:200px;width:18px;bottom:0;background:#8A5A3B;border-radius:0 0 6px 6px}
+.lob-plant.shrubs .lob-trunk{display:none}
+.lob-letter{left:0;right:0;text-align:center;color:#fff;font:800 112px/1.25 'Baloo Bhaijaan 2',sans-serif;opacity:0;transform:scale(.3);transition:transform .3s cubic-bezier(.2,1.6,.4,1),opacity .2s;pointer-events:none;text-shadow:0 3px 0 rgba(12,36,112,.25)}
+.lob-plant.trees .lob-letter{top:8px}
+.lob-plant.shrubs .lob-letter{top:22px;font-size:118px}
+.lob-plant.show .lob-letter{opacity:1;transform:none}
+.lob-plant.show .lob-crown::after{content:'';position:absolute;inset:-8px;border:9px solid var(--gold-hi);border-radius:34px;box-shadow:0 0 0 4px rgba(201,162,75,.45),0 0 26px rgba(226,193,113,.9);pointer-events:none}
+.lob-plant.trees.show .lob-crown::after{top:-8px;height:166px}
+.lob-plant.shrubs.show .lob-crown::after{border-radius:50% 50% 40% 40%}
+.lob-plant.leave{transition:transform .6s ease-in,opacity .6s;transform:translateY(260px);opacity:0}
+.lob-plant.stay{transition:left .7s ease,top .7s ease}
+.lob-pic{left:calc(512px - var(--w)/2);width:var(--w);bottom:110px;z-index:5;transition:transform .7s cubic-bezier(.2,1.3,.4,1);transform-origin:50% 100%;cursor:pointer;animation:walkIn .9s ease-out both}
+.lob-pic img{position:static;width:100%;height:auto;display:block}
+.lob-pic.small{transform:scale(.36)}
+@keyframes walkIn{from{opacity:0;translate:-260px 0}}
+.lob-word{left:112px;top:58px;width:800px;height:220px;text-align:center;font:700 170px/220px 'Baloo Bhaijaan 2',sans-serif;color:var(--ink);z-index:7;cursor:pointer;white-space:nowrap}
+.lob-word span{position:static;transition:color .4s}
+.lob-word.split .w-first{color:var(--crimson)}
+.lob-word .w-lift{position:relative;display:inline-block;color:var(--crimson);transform:translate(26px,-30px);transition:transform .7s cubic-bezier(.2,1.3,.4,1)}
+.ref-hint.nearword{z-index:8}
+</style>
+</head>
+<body>
+<div id="refRoot" aria-live="polite"></div>
+<script src="js/core.js"></script>
+<script src="js/refgame.js"></script>
+<script src="js/games/letters-on-bushes.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  REF.start(q.get('g') || 'letters-on-bushes', q.get('l') || 'alef-ba');
+</script>
+</body>
+</html>

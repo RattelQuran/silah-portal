@@ -86,8 +86,15 @@ function viewSection(sid) {
     <div class="chips" role="group" aria-label="المستوى">${[0, 1, 2, 3].map(v => `<button class="chip ${secFilter.level === v ? 'on' : ''}" data-flevel="${v}">${v ? LEVELS[v] : 'كل المستويات'}</button>`).join('')}</div>
     ${engines.length > 1 ? `<div class="chips" role="group" aria-label="النوع"><button class="chip ${!secFilter.engine ? 'on' : ''}" data-feng="">كل الأنواع</button>${engines.map(e => `<button class="chip ${secFilter.engine === e ? 'on' : ''}" data-feng="${e}">${ENGINE_LABEL[e]}</button>`).join('')}</div>` : ''}
     <div class="chips" role="group" aria-label="الحالة">${[['', 'الكل'], ['new', 'لم أبدأ'], ['done', 'أنجزت'], ['todo', 'أقل من ٣ نجوم']].map(([v, n]) => `<button class="chip ${secFilter.status === v ? 'on' : ''}" data-fst="${v}">${n}</button>`).join('')}</div></div>
+  ${s.id === 'games' ? refGamesBlock() : ''}
   <div id="secList"></div>
   <div class="card planned"><h3>قيد الإنتاج</h3><p>المتاح الآن <b>${num(all.length)}</b> نشاطًا نموذجيًا في هذا القسم. الهدف في خطة الإنتاج: <b>${num(s.target)}</b> ${s.unit}، وتُنتج عبر مصنع المحتوى بعد اعتماد جودة المحركات ومراجعة لغوية وتربوية. لا نعرض محتوى غير مكتمل على أنه جاهز.</p></div>`;
+}
+/* games rebuilt one by one against the reference, in the reference's order (tracker: docs/learn/GAMES_PRODUCTION_TRACKER.json) */
+const REF_LIST = [{ g: 'letters-on-bushes', l: 'alef-ba', n: 1, title: 'التعرف على حرفي الألف والباء', group: 'حروف الألف والباء', state: 'بانتظار الاعتماد' }];
+function refGamesBlock() {
+  const done = S.refDone || {};
+  return `<details class="unit" open><summary><span>الألعاب المطابقة للمرجع (${num(REF_LIST.length)})</span><span class="muted">تُبنى لعبةً لعبة</span></summary><div class="lgrid">${REF_LIST.map(r => `<a class="lcard" href="play.html?g=${r.g}&l=${r.l}&back=${encodeURIComponent('index.html#section-games')}"><span class="pill soft">${esc(r.group)} · الدرس ${num(r.n)}</span><b>${esc(r.title)}</b><span class="muted">${done['ref:' + r.g + ':' + r.l] ? '✓ أنجزت' : esc(r.state)}</span></a>`).join('')}</div></details>`;
 }
 function renderSecList(sid) {
   const f = secFilter, q = norm(f.q);

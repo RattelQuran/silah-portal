@@ -1,0 +1,43 @@
+{
+  "updated": "2026-11-28",
+  "reference_counts_verified": {
+    "source": "alefbata.com/lessons, logged-in account, read in Chrome on 2026-11-28",
+    "groups": 21,
+    "group_1": "حروف الألف والباء (8 دروس)",
+    "note": "Lesson total and the 96 game types still to be recounted group by group as each group is inspected."
+  },
+  "statuses": ["Not Inspected", "Inspected", "In Development", "Assets Pending", "Integrated", "Tested", "Ready for Review", "Approved", "Blocked"],
+  "games": [
+    {
+      "id": "G-001",
+      "section": "games / group 1: حروف الألف والباء / lesson 1",
+      "reference": "letters-on-bushes / lesson-alef-ba",
+      "silah_url": "learn/play.html?g=letters-on-bushes&l=alef-ba",
+      "inspection": "Inspected",
+      "programming": "Integrated",
+      "assets": "Integrated",
+      "integration": "Integrated",
+      "testing": "Tested",
+      "status": "Ready for Review",
+      "observed_reference": {
+        "screen": "4:3 canvas 1024x768, letterboxed",
+        "flow": "tap to start → title card → big letter + pointing hand → tap → 5 plants grow → letter shows on one plant at a time (framed) → tap it → plant smiles → after 5: middle plants leave, picture walks in small with pointing hand → tap → picture grows, word appears → tap word → first letter separates in colour → next letter → curtain → back to list with tick",
+        "layouts": "alef: 5 square-crown trees, alternating heights; ba: 5 round shrubs, 3 back + 2 front",
+        "wrong_tap": "no visual reaction",
+        "scoring": "no stars or score screen for this lesson; completion tick only (URL carries duration and mistakes)",
+        "words": "أسد (lion), بطة (duck in pond)"
+      },
+      "comparison_score": {
+        "mechanic": 25, "layout": 18, "motion_controls": 17, "feedback": 13, "assets_identity": 9, "performance_responsive": 9, "total": 91,
+        "basis": "Played to the end on both reference and Silah; side-by-side shots in project files (silah-games/G-001/compare.png). Self-assessed, not yet approved by Alaa."
+      },
+      "remaining_issues": [
+        "Voice is the browser's Arabic text-to-speech, not recorded audio; the reference uses recorded voice.",
+        "Motion timings estimated from screenshots, not frame-measured.",
+        "Shrub highlight frame is an oval, the reference uses a rounded square.",
+        "Duck picture is a single sprite with its pond; the reference pond is wider than the duck.",
+        "Touch tested only in emulation (Playwright hasTouch), not on a real phone or iPad."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "updated": "2026-11-28",
+  "phase": "Not started. Exercises begin only after the games phase is approved.",
+  "statuses": ["Not Inspected", "Inspected", "In Development", "Assets Pending", "Integrated", "Tested", "Ready for Review", "Approved", "Blocked"],
+  "reference_counts_to_verify": { "exercises": "about 956 (previous inventory, unverified)", "categories": "about 133 (unverified)" },
+  "exercises": []
+}
