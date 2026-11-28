@@ -46,14 +46,17 @@ const REF = {
     const s = refEl('div', 'ref-start', REF.stage);
     s.innerHTML = `<div class="ref-glow"><div class="ref-hand">${handSVG()}</div></div>`;
     await new Promise(res => s.addEventListener('pointerdown', res, { once: true }));
-    SFX.tap(); s.remove();
+    SFX.tap(); s.remove(); await sleep(60);   /* let this tap finish before the card listens */
     /* 2. backdrop + title card */
     refEl('div', 'ref-bg', REF.stage, { backgroundImage: `url(${g.assets.bg})` });
     REF.layer = refEl('div', 'ref-layer', REF.stage);
-    const card = refEl('div', 'ref-card pop', REF.stage); card.innerHTML = `<p>${esc(data.title)}</p>`;
+    /* the title card waits for a tap, as on the reference, over a dimmed scene */
+    const dim = refEl('div', 'ref-dim', REF.stage);
+    const card = refEl('div', 'ref-card pop', REF.stage);
+    card.innerHTML = `<p>${esc(data.title)}</p>${g.assets.card ? `<img class="books" src="${g.assets.card}" alt="" draggable="false">` : ''}`;
     say(data.say || data.title);
-    await Promise.race([new Promise(res => card.addEventListener('pointerdown', res, { once: true })), sleep(3500)]);
-    card.classList.add('out'); await sleep(350); card.remove();
+    await new Promise(res => REF.stage.addEventListener('pointerdown', res, { once: true }));
+    SFX.tap(); card.classList.add('out'); dim.style.opacity = 0; await sleep(350); card.remove(); dim.remove();
     REF.t0 = performance.now(); REF.mistakes = 0;
     /* 3. the game itself */
     await g.play(REF.layer, data, REF);

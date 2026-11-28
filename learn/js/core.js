@@ -64,12 +64,20 @@ const SFX = {
 
 /* voice: browser Arabic voice as a stand-in until Silah's own recordings exist */
 function hasArabicVoice() { try { return speechSynthesis.getVoices().some(v => /^ar/i.test(v.lang)); } catch (e) { return false; } }
+/* best Arabic voice on this device: natural/online voices first (Edge, Chrome, Safari), then any Arabic voice */
+function bestArabicVoice() {
+  try {
+    const vs = speechSynthesis.getVoices().filter(v => /^ar/i.test(v.lang)); if (!vs.length) return null;
+    const score = v => (/natural|online|neural/i.test(v.name) ? 40 : 0) + (/google/i.test(v.name) ? 25 : 0) + (/hamed|zariyah|salma|shakir|maged|laila|tarik|majed/i.test(v.name) ? 15 : 0) + (/^ar-(SA|EG)/i.test(v.lang) ? 5 : 0) + (v.localService ? 0 : 3);
+    return vs.sort((a, b) => score(b) - score(a))[0];
+  } catch (e) { return null; }
+}
 function say(text, onBoundary, onEnd) {
   try {
     if (!('speechSynthesis' in window)) { onEnd && onEnd(); return false; }
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text); u.lang = 'ar-SA'; u.rate = .82;
-    const v = speechSynthesis.getVoices().find(v => /^ar/i.test(v.lang)); if (v) u.voice = v;
+    const v = bestArabicVoice(); if (v) u.voice = v;
     if (onBoundary) u.onboundary = onBoundary; if (onEnd) u.onend = onEnd;
     speechSynthesis.speak(u); return !!v;
   } catch (e) { onEnd && onEnd(); return false; }

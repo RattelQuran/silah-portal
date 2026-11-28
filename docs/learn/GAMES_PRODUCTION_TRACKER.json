@@ -6,7 +6,17 @@
     "group_1": "حروف الألف والباء (8 دروس)",
     "note": "Lesson total and the 96 game types still to be recounted group by group as each group is inspected."
   },
-  "statuses": ["Not Inspected", "Inspected", "In Development", "Assets Pending", "Integrated", "Tested", "Ready for Review", "Approved", "Blocked"],
+  "statuses": [
+    "Not Inspected",
+    "Inspected",
+    "In Development",
+    "Assets Pending",
+    "Integrated",
+    "Tested",
+    "Ready for Review",
+    "Approved",
+    "Blocked"
+  ],
   "games": [
     {
       "id": "G-001",
@@ -25,18 +35,32 @@
         "layouts": "alef: 5 square-crown trees, alternating heights; ba: 5 round shrubs, 3 back + 2 front",
         "wrong_tap": "no visual reaction",
         "scoring": "no stars or score screen for this lesson; completion tick only (URL carries duration and mistakes)",
-        "words": "أسد (lion), بطة (duck in pond)"
+        "words": "أسد (lion), بطة (duck in pond)",
+        "timings_ms": {
+          "hand_after_intro_letter": 2500,
+          "intro_tap_to_first_letter_on_plant": 3600,
+          "letter_shrink_after_tap": 450,
+          "gap_to_next_plant": 1450,
+          "method": "canvas sampled every 50 ms in Chrome while playing, 2026-11-28"
+        },
+        "title_card": "waits for a tap over a dimmed scene, with an illustration under the text",
+        "ba_picture": "a small pond strip appears with the hand; tapping widens the pond and the duck rises in it",
+        "shrub_highlight": "outline that follows the shrub silhouette"
       },
       "comparison_score": {
-        "mechanic": 25, "layout": 18, "motion_controls": 17, "feedback": 13, "assets_identity": 9, "performance_responsive": 9, "total": 91,
-        "basis": "Played to the end on both reference and Silah; side-by-side shots in project files (silah-games/G-001/compare.png). Self-assessed, not yet approved by Alaa."
+        "mechanic": 25,
+        "layout": 19,
+        "motion_controls": 19,
+        "feedback": 14,
+        "assets_identity": 9,
+        "performance_responsive": 9,
+        "total": 95,
+        "basis": "Round 2 after Alaa asked to tune it: measured timings applied, shrub outline, pond reveal, title card behaviour. Played to the end with mouse (1100x825) and emulated touch (844x390, 820x1180). Self-assessed; awaiting Alaa's approval."
       },
       "remaining_issues": [
-        "Voice is the browser's Arabic text-to-speech, not recorded audio; the reference uses recorded voice.",
-        "Motion timings estimated from screenshots, not frame-measured.",
-        "Shrub highlight frame is an oval, the reference uses a rounded square.",
-        "Duck picture is a single sprite with its pond; the reference pond is wider than the duck.",
-        "Touch tested only in emulation (Playwright hasTouch), not on a real phone or iPad."
+        "Voice is the best Arabic text-to-speech voice on the device, not recorded audio; the reference uses recorded voice.",
+        "Touch tested only in emulation (Playwright hasTouch), not on a real phone or iPad.",
+        "Highlight colour is Silah gold instead of the reference's yellow-green (identity rule)."
       ]
     }
   ]

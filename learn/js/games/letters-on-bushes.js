@@ -6,6 +6,7 @@
    Art: Silah originals produced through ChatGPT (assets/games/letters-on-bushes). */
 
 const LOB_DIR = 'assets/games/letters-on-bushes/';
+const lobSrc = window.LOB_ASSET || (n => LOB_DIR + n);
 /* stage layouts in the 1024x768 frame; y is the ground line for trees and the centre for shrubs */
 const LOB_LAYOUTS = {
   trees: [
@@ -19,7 +20,7 @@ const LOB_GROUND = 616;
 
 REFGAMES['letters-on-bushes'] = {
   id: 'G-001', name: 'الحروف على الشجيرات',
-  assets: { bg: LOB_DIR + 'bg.jpg' },
+  assets: { bg: lobSrc('bg.jpg'), card: lobSrc('books.png') },
   /* lesson data only: the game code above never names a letter */
   lessons: {
     'alef-ba': {
@@ -27,7 +28,7 @@ REFGAMES['letters-on-bushes'] = {
       say: 'هيا نتعرف على حرفي الألف والباء',
       rounds: [
         { letter: 'أ', name: 'الألف', sound: 'أَ', layout: 'trees', word: 'أسد', pic: 'lion', picW: 340, firstJoins: false },
-        { letter: 'ب', name: 'الباء', sound: 'بَ', layout: 'shrubs', word: 'بطة', pic: 'duck', picW: 430, firstJoins: true },
+        { letter: 'ب', name: 'الباء', sound: 'بَ', layout: 'shrubs', word: 'بطة', pic: 'duck-float', picKind: 'pond', firstJoins: true },
       ],
     },
   },
@@ -39,17 +40,20 @@ REFGAMES['letters-on-bushes'] = {
   },
 };
 
-function lobImg(name, parent, cls) { const im = refEl('img', cls, parent); im.src = LOB_DIR + name + '.png'; im.alt = ''; im.draggable = false; return im; }
+function lobImg(name, parent, cls) { const im = refEl('img', cls, parent); im.src = lobSrc(name + '.png'); im.alt = ''; im.draggable = false; return im; }
 
 async function lobRound(layer, r, ref, idx) {
   const st = { round: idx, letter: r.letter, phase: 'intro', found: 0, current: -1, plants: [] };
   window.__eng = st;
+  /* timings measured on the reference (ms): hand after the letter ~2500, plants + first letter 3600 after the tap,
+     letter shrink 450, gap to the next plant 1450 */
   /* 1. the letter, large, with the pointing hand */
   const big = refEl('div', 'lob-big pop', layer); big.textContent = r.letter;
   say(r.name);
-  await sleep(1300);
+  await sleep(2500);
   const hint = ref.hand(layer, 512, 470, 'up', 300);
   await new Promise(res => ref.stage.addEventListener('pointerdown', res, { once: true }));
+  const tIntro = performance.now();
   SFX.tap(); hint.remove(); big.classList.add('out'); await sleep(450); big.remove();
 
   /* 2. five plants grow in */
@@ -64,13 +68,14 @@ async function lobRound(layer, r, ref, idx) {
       const h = w * 0.75; refPlace(el, p.x, p.y, w, h);
       el.style.zIndex = p.y > 600 ? 3 : 2;
     }
-    el.style.setProperty('--d', (i * 90) + 'ms');
-    el.innerHTML = `<div class="lob-crown"><img src="${LOB_DIR + (r.layout === 'trees' ? 'tree' : 'shrub')}.png" alt="" draggable="false" class="plain"><img src="${LOB_DIR + (r.layout === 'trees' ? 'tree' : 'shrub')}-happy.png" alt="" draggable="false" class="happy"><b class="lob-letter">${esc(r.letter)}</b></div>${r.layout === 'trees' ? '<i class="lob-trunk"></i>' : ''}`;
+    el.style.setProperty('--d', (i * 140) + 'ms');
+    const kind = r.layout === 'trees' ? 'tree' : 'shrub';
+    el.innerHTML = `<div class="lob-crown"><img src="${lobSrc(kind + '.png')}" alt="" draggable="false" class="plain"><img src="${lobSrc(kind + '-happy.png')}" alt="" draggable="false" class="happy"><b class="lob-letter">${esc(r.letter)}</b></div>${r.layout === 'trees' ? '<i class="lob-trunk"></i>' : ''}`;
     el.dataset.i = i;
     st.plants.push({ el, done: false });
   });
   SFX.whoosh();
-  await sleep(1100);
+  await sleep(Math.max(0, 3600 - (performance.now() - tIntro)));
 
   /* 3. the letter visits each plant once, in random order */
   st.phase = 'hunt';
@@ -79,22 +84,35 @@ async function lobRound(layer, r, ref, idx) {
     const P = st.plants[k]; st.current = k;
     P.el.classList.add('show'); SFX.pop(); say(r.sound);
     await ref.tapOn(P.el, () => { ref.mistakes++; });
-    SFX.good();
-    P.el.classList.remove('show'); P.el.classList.add('got'); P.done = true; st.found++;
-    st.current = -1;
-    await sleep(st.found < 5 ? 1500 : 1000);
+    SFX.good(); st.current = -1;
+    P.el.classList.add('shrink'); await sleep(450);
+    P.el.classList.remove('show', 'shrink'); P.el.classList.add('got'); P.done = true; st.found++;
+    await sleep(st.found < 5 ? 1450 : 1000);
   }
 
   /* 4. the middle plants leave, the picture arrives */
   st.phase = 'picture';
   st.plants.forEach((P, i) => { const edge = r.layout === 'trees' ? (i === 0 || i === 4) : (i === 0 || i === 2); P.el.classList.add(edge ? 'stay' : 'leave'); });
   await sleep(700);
-  const pic = refEl('div', 'lob-pic small', layer); pic.style.setProperty('--w', r.picW + 'px');
-  lobImg(r.pic, pic);
-  await sleep(900);
-  const h2 = ref.hand(layer, 512 - (r.layout === 'trees' ? 150 : 210), 600, 'left', 120);
-  await ref.tapOn(pic, () => { });
-  SFX.tap(); h2.remove(); pic.classList.remove('small'); SFX.open();
+  let pic, h2;
+  if (r.picKind === 'pond') {
+    /* a small pond first; tapping it widens the pond and the picture rises out of the water */
+    pic = refEl('div', 'lob-pond small', layer);
+    pic.innerHTML = '<i class="ripples"></i>';
+    await sleep(600);
+    h2 = ref.hand(layer, 300, 612, 'left', 120);
+    await ref.tapOn(pic, () => { });
+    SFX.tap(); h2.remove(); pic.classList.remove('small'); SFX.splash();
+    await sleep(350);
+    const duck = refEl('div', 'lob-float', layer); lobImg(r.pic, duck);
+  } else {
+    pic = refEl('div', 'lob-pic small', layer); pic.style.setProperty('--w', r.picW + 'px');
+    lobImg(r.pic, pic);
+    await sleep(900);
+    h2 = ref.hand(layer, 362, 600, 'left', 120);
+    await ref.tapOn(pic, () => { });
+    SFX.tap(); h2.remove(); pic.classList.remove('small'); SFX.open();
+  }
   const word = refEl('div', 'lob-word pop', layer);
   word.innerHTML = `<span class="w-all">${esc(r.word)}</span>`;
   say(r.word);
@@ -111,6 +129,10 @@ async function lobRound(layer, r, ref, idx) {
   word.classList.add('split');
   say(r.word + '، ' + r.name);
   st.phase = 'split';
-  await sleep(3200);
+  /* the hand returns to the word: a tap replays it; the round moves on by itself shortly after */
+  await sleep(2200);
+  const h4 = ref.hand(layer, 300, 175, 'left', 120); h4.classList.add('nearword');
+  await Promise.race([ref.tapOn(word, () => { }).then(() => say(r.word)), sleep(3000)]);
+  h4.remove(); await sleep(400);
   layer.classList.add('fadeout'); await sleep(600); layer.classList.remove('fadeout');
 }
