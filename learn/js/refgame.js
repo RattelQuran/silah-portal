@@ -76,7 +76,7 @@ const REF = {
       const b = refEl('button', 'ref-again', REF.stage); b.textContent = 'العب مرة أخرى';
       b.onclick = () => location.reload(); return;
     }
-    location.href = back + (back.includes('?') ? '&' : '?') + 'done=' + encodeURIComponent(id);
+    location.href = back;   /* the tick comes from S.refDone */
   },
   /* wait for a tap on one element; taps elsewhere call onMiss */
   tapOn(el, onMiss) {

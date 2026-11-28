@@ -88,8 +88,8 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;color:var(--ink)}
 <script src="js/refgame.js"></script>
 <script src="js/games/letters-on-bushes.js"></script>
 <script>
-  const q = new URLSearchParams(location.search);
-  REF.start(q.get('g') || 'letters-on-bushes', q.get('l') || 'alef-ba');
+  const q = new URLSearchParams(location.search), h = location.hash.slice(1).split('/');
+  REF.start(h[0] || q.get('g') || 'letters-on-bushes', h[1] || q.get('l') || 'alef-ba');
 </script>
 </body>
 </html>

@@ -94,7 +94,7 @@ function viewSection(sid) {
 const REF_LIST = [{ g: 'letters-on-bushes', l: 'alef-ba', n: 1, title: 'التعرف على حرفي الألف والباء', group: 'حروف الألف والباء', state: 'بانتظار الاعتماد' }];
 function refGamesBlock() {
   const done = S.refDone || {};
-  return `<details class="unit" open><summary><span>الألعاب المطابقة للمرجع (${num(REF_LIST.length)})</span><span class="muted">تُبنى لعبةً لعبة</span></summary><div class="lgrid">${REF_LIST.map(r => `<a class="lcard" href="play.html?g=${r.g}&l=${r.l}&back=${encodeURIComponent('index.html#section-games')}"><span class="pill soft">${esc(r.group)} · الدرس ${num(r.n)}</span><b>${esc(r.title)}</b><span class="muted">${done['ref:' + r.g + ':' + r.l] ? '✓ أنجزت' : esc(r.state)}</span></a>`).join('')}</div></details>`;
+  return `<details class="unit" open><summary><span>الألعاب المطابقة للمرجع (${num(REF_LIST.length)})</span><span class="muted">تُبنى لعبةً لعبة</span></summary><div class="lgrid">${REF_LIST.map(r => `<a class="lcard" href="play.html#${r.g}/${r.l}"><span class="pill soft">${esc(r.group)} · الدرس ${num(r.n)}</span><b>${esc(r.title)}</b><span class="muted">${done['ref:' + r.g + ':' + r.l] ? '✓ أنجزت' : esc(r.state)}</span></a>`).join('')}</div></details>`;
 }
 function renderSecList(sid) {
   const f = secFilter, q = norm(f.q);
